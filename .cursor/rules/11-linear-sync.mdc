@@ -1,0 +1,61 @@
+---
+description: Sync commits to Linear issues (autonomous-loop work only)
+alwaysApply: true
+---
+# Linear sync
+Linear comments and status transitions are part of the **autonomous implementer
+loop only** — they're how the loop reports back to the team on stories pulled
+from Linear. Manual commits made outside the autonomous loop do **not** sync to
+Linear.
+
+A session is in autonomous mode iff `.cursor/autonomous-mode.txt` exists and
+its first `[A-Z]+-[0-9]+` token equals the current branch's story id (the first
+such token in the branch name, e.g. `TOK-6` for `TOK-6/s01-repo-bootstrap`).
+See `12-autonomous-mode.mdc` for how the marker is set/cleared.
+
+## Contract — after `git commit` on a story branch in autonomous mode
+For each new commit, in chronological order:
+1. Resolve the issue id from the branch name.
+2. Call the `plugin-linear-linear.save_comment` MCP tool with:
+   - `issueId`: the resolved id (e.g. `TOK-6`).
+   - `body`: a short markdown comment containing
+     - back-ticked short hash + subject on the first line,
+     - a one-line `Scope:` summary of files / top-level dirs touched,
+     - a one-line `Verify:` summary (typecheck / lint / test status if relevant),
+     - optionally a longer paragraph for context.
+3. Append the short hash on its own line to `.cursor/linear-synced.txt`. The
+   stop-hook (`linear-sync-prompt.sh`) reads this ledger to know what's done.
+
+Do not skip step 3 — without it the stop hook will keep nudging.
+
+## On the final commit (STORY_COMPLETE + targeted suite green)
+After the per-commit comment is posted and the hash is in the ledger, the
+implementer also:
+1. Pushes the branch (`git push -u origin HEAD`).
+2. Opens or updates a PR via `gh pr create` / `gh pr edit`.
+3. Enables auto-merge once CI passes: `gh pr merge --auto --squash` (CI is the
+   review gate; the autonomous loop does not wait on human review).
+4. Moves the Linear issue forward via `plugin-linear-linear.save_issue`:
+   `{id: "<STORY_ID>", state: "In Review"}` (or `"Done"` if the merge has
+   already landed). Use a state that exists for the team — call
+   `list_issue_statuses {team: "Tokenomik"}` if unsure.
+5. Clears the marker: `bash scripts/autonomous-stop.sh`.
+
+## Enforcement
+`linear-sync-prompt.sh` runs on every `stop` event. It first checks the
+autonomous marker — if absent or its story id doesn't match the branch, the
+hook is silent. Otherwise it computes `git log <base>..HEAD`
+(base = `@{upstream}` → `origin/main` → `main`) and compares short hashes
+against the ledger. Unsynced commits trigger a `followup_message` listing
+them. The hook never calls Linear directly — only the agent does, via the
+MCP — so no API token is required in the env.
+
+## Notes
+- One comment per commit is the default. Squash multi-commit comments only
+  when the commits land in a single push and share narrative.
+- If the branch has no story id (e.g. `main`, `chore/bump-deps`), the hook is
+  a no-op even if the marker exists.
+- The ledger is gitignored: it represents per-clone sync state, not project
+  state. The marker is gitignored for the same reason.
+- Manual / debugging commits while autonomous mode is on still get synced —
+  if you don't want them on the issue, stop autonomous mode first.

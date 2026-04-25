@@ -1,3 +1,30 @@
 .mempalace/
 .mcp-memory/
 .cursor/rules/30-personal.mdc
+# Runtime token used by verify-completion-promise hook; not a source artifact.
+.cursor/scratchpad.md
+# Drafted by the agent on stop; consumed by diary-append.sh and cleared.
+.cursor/session-summary.md
+# Per-clone Linear sync ledger (linear-sync-prompt.sh). Tracks short hashes
+# already commented on the matching Linear issue.
+.cursor/linear-synced.txt
+# Autonomous-mode marker. Presence means the current session is running the
+# implementer's autonomous loop on the listed story. See .cursor/commands/
+# autonomous.md and rule 12-autonomous-mode.mdc.
+.cursor/autonomous-mode.txt
+
+# Node / TypeScript build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local env (use env.example as the canonical surface)
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+

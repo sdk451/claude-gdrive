@@ -1,0 +1,3 @@
+# Targeted tests for TOK-7 / S0.2 — CI: PR validation pipeline
+unit: tests/unit/server.test.ts
+unit: tests/unit/ci-pr-validation.test.ts

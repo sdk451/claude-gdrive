@@ -31,6 +31,9 @@
       },
       {
         "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh"
+      },
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/linear-sync-prompt.sh"
       }
     ]
   }

@@ -1,0 +1,3 @@
+# Alias for backlog path — same as TOK-7-targets.txt (S0.2)
+unit: tests/unit/server.test.ts
+unit: tests/unit/ci-pr-validation.test.ts

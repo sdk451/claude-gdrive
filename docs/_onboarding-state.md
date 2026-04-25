@@ -2,7 +2,7 @@
 
 Append-only. Latest entry on top. Each entry follows:
 
-```
+```text
 ## YYYY-MM-DD HH:MM — <step-id> — <persona>
 - Status: started|complete|blocked
 - Output(s): docs/<file>.md
@@ -53,3 +53,21 @@ Append-only. Latest entry on top. Each entry follows:
 - Linear import verified via `list_issues` against project `986e4bd3-32fa-42af-a9cf-404dd2ca2c80`: 39 issues total (7 epics + 32 stories), parent links intact (e.g., `TOK-6.parentId=TOK-5`); exactly 4 issues in **Todo** (TOK-6, TOK-7, TOK-9, TOK-12) per the readiness rule.
 - Significant: yes
 - Notes: No code-side feature work performed. Onboarding kit + this project's onboarding artifacts + Linear backlog are complete. Next step is human review and, on approval, kicking off Epic 0 / S0.1.
+
+## 2026-04-25 — TOK-6 / S0.1 — Imp + Plan + Tess
+
+- Status: complete (awaiting reviewer)
+- Branch: `TOK-6/s01-repo-bootstrap` (local; not pushed)
+- Linear: TOK-6 → **In Progress**, implementation comment posted with verification.
+- Outputs:
+  - `docs/designs/TOK-6.md` (Planner)
+  - `docs/tests/TOK-6-targets.txt` + `tests/unit/server.test.ts` (Test Architect)
+  - `package.json` (with `pnpm.supportedArchitectures`), `tsconfig.json`, `tsconfig.build.json`, `eslint.config.js`, `.prettierrc.json`, `.prettierignore`, `.editorconfig`, `.nvmrc`, `env.example`, `vitest.config.ts`
+  - `src/server.ts`, `src/index.ts`
+  - `.github/workflows/pr-validation.yml` (minimal; S0.2 will extend)
+  - Updated `.gitignore` (Node build outputs + .env)
+- Acceptance criteria: all 3 verified — gates green (install/typecheck/lint/test 2/2), `/healthz` smoke 200 with `{"status":"ok"}`, engines + CI matrix pinned to Node 22.
+- Completion gate: `STORY_COMPLETE` promise present in `.cursor/scratchpad.md`; `scripts/run-targeted-tests.sh docs/tests/TOK-6-targets.txt` → `ALL GREEN across tiers`.
+- Side fix: hardened `.cursor/hooks/enforce-plan-mode.sh` to normalise Windows backslashes in the `docs/`/`tests/` allowlist (same class of bug as the diary-hook fix earlier today).
+- Significant: yes
+- Notes: nothing committed/pushed; reviewer (Rev) handoff next.

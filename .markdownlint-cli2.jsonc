@@ -1,0 +1,20 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD025": false,
+    "MD041": false,
+    "MD033": false,
+    "MD036": false
+  },
+  "ignores": [
+    "node_modules",
+    "**/node_modules/**",
+    "docs/autonomous-swe-kit/**",
+    "docs/diary/**",
+    "docs/_seed/**",
+    ".cursor/**",
+    ".specify/**",
+    ".github/instructions/**"
+  ]
+}
