@@ -22,14 +22,15 @@ how **main** + **release** workflows relate. It complements `docs/test-strategy.
 
 **Linear:** GitHub does not update Linear. Paste the **artifact** or **PR URL** into a Linear comment when reporting progress, or rely on the autonomous agent's `save_comment` / `save_issue` steps.
 
-### Main runs (`ci-main.yml`)
+### Main runs (`ci.yml` — regression job)
 
-On every **push to `main`**:
+On every **push to `main`** (`ci.yml`):
 
 1. Same install / typecheck / lint / `test:unit:ci`.
 2. **`scripts/ci/run-regression-story-targets.sh`** — runs **every** `docs/tests/TOK-*-targets.txt` file so all story-declared slices stay green together.
 3. Summary → `reports/MAIN_REGRESSION_SUMMARY.md`.
 4. Artifact **`regression-main-<sha>`**.
+5. **Container job** (after regression): `docker build` from repo `Dockerfile`; optional push to Artifact Registry when GCP WIF secrets are configured (see root `README.md`).
 
 ## Promoting tests from a story loop into regression
 
@@ -52,7 +53,7 @@ On every **push to `main`**:
 2. List them in **`docs/tests/<STORY>-targets.txt`** (and optional prose in `docs/tests/<STORY>.md`).
 3. Iterate until green; merge to `main`.
 
-**After merge:** no extra "registration" step — `pnpm test` and `ci-main` already pick up new files. Keep **`docs/tests/TOK-*-targets.txt`** updated so the **aggregated story-target regression** on `main` continues to run those paths explicitly (catches mis-filed globs).
+**After merge:** no extra "registration" step — `pnpm test` and `ci.yml` already pick up new files. Keep **`docs/tests/TOK-*-targets.txt`** updated so the **aggregated story-target regression** on `main` continues to run those paths explicitly (catches mis-filed globs).
 
 ## Release train (vision)
 

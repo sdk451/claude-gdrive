@@ -10,6 +10,6 @@ Vitest picks up **`tests/**/\*.test.ts`** (see `vitest.config.ts`). Organise by 
 
 **Story work:** the Test Architect lists paths in `docs/tests/<Linear-id>-targets.txt` (e.g. `docs/tests/TOK-8-targets.txt`). The implementer runs `scripts/run-targeted-tests.sh` against that file until green.
 
-**After merge:** those files live on `main` and run in **every** `pnpm test` / `ci-main` regression. Update the targets file when you add or rename tests so PR + main aggregated runs stay aligned.
+**After merge:** those files live on `main` and run in **every** `pnpm test` / `ci.yml` regression. Update the targets file when you add or rename tests so PR + main aggregated runs stay aligned.
 
 See also `docs/test-strategy.md` and `docs/testing-artifacts-and-regression.md`.
