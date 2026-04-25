@@ -1,0 +1,14 @@
+# Gitleaks — secret scanning (see S0.8 workflow when enabled).
+# https://github.com/gitleaks/gitleaks
+
+title = "gdrive-cowork-connector"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Committed env template and unit-test fixtures (placeholders only)"
+paths = [
+  '''env\.example''',
+  '''tests/unit/boot-env\.test\.ts''',
+]

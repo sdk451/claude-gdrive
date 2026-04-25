@@ -1,6 +1,14 @@
 import { serve } from "@hono/node-server";
 
+import { parseBootEnv } from "./config/env.js";
 import { createApp } from "./server.js";
+
+const boot = parseBootEnv();
+if (!boot.ok) {
+  process.stderr.write(`${boot.message}\n`);
+  process.exit(1);
+}
+const _validatedBootEnv = boot.value;
 
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 

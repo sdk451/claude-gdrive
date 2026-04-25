@@ -13,7 +13,15 @@ pnpm test
 pnpm dev
 ```
 
+Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `SESSION_SECRET` first (see [`env.example`](env.example)). The process exits on boot with a one-line error if any are missing or `SESSION_SECRET` is not 64 hex digits.
+
 See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/) for architecture, constitution, and workflow.
+
+## Configuration & secrets
+
+- **Local:** copy `env.example` to `.env` and load into your environment (this repo does not bundle `dotenv` in the runtime — see `docs/designs/TOK-6.md`).
+- **Staging / prod:** store the same variable names in **Google Secret Manager** and map them into Cloud Run; see [`docs/environments.md`](docs/environments.md#secret-manager-staging).
+- **Leak detection:** [`.gitleaks.toml`](.gitleaks.toml) extends the default ruleset with allowlists for the documented template and unit-test placeholders.
 
 ## CI — required status checks
 
