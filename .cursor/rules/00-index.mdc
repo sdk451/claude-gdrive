@@ -9,8 +9,10 @@ description: Rules index
 - 04-infra.mdc â€” scoped to infra/
 - 05-design-system.mdc â€” scoped to components/
 - 10-testing.mdc â€” scoped to tests/
+- 11-linear-sync.mdc â€” always on; post a Linear comment per commit on story branches
 - 20-planner.mdc / 21-implementer.mdc / 22-reviewer.mdc â€” persona-gated
 - 40-serena.mdc â€” always on; prefer Serena for code navigation
 - 41-memory.mdc â€” always on; consult and update session memory
+- 42-diary.mdc â€” always on; author real session summaries to docs/diary/
 - 30-personal.mdc â€” gitignored
 Keep total always-on content under ~2,000 tokens.

@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Throttled diary.
 # Records:
-#   1. End-of-session/workflow summaries (stop / Stop event).
-#   2. Significant updates to foundational documents (Write/Edit on docs that
-#      define project intent: brief, prd, architecture, tech-stack, ux*,
-#      constitution, backlog, design-system, environments, observability,
+#   1. Stop event: materialise .cursor/session-summary.md (if non-empty) into
+#      today's diary as a timestamped block, then clear the source file. Silent
+#      when no summary exists — the agent owns when to write one (see rule
+#      42-diary.mdc).
+#   2. PostToolUse: significant updates to foundational documents (Write/Edit
+#      on docs that define project intent: brief, prd, architecture, tech-stack,
+#      ux*, constitution, backlog, design-system, environments, observability,
 #      test-strategy, and per-story design docs under docs/designs/).
 # Routine Shell/Bash activity and writes to non-foundational files are ignored.
 
@@ -52,7 +55,31 @@ append_entry() {
 
 case "$HOOK_EVENT" in
   stop|Stop)
-    append_entry "- ${NOW} | ${PERSONA} | [session-end] branch=${BRANCH} story=${STORY:-none}"
+    SUMMARY=".cursor/session-summary.md"
+    # Only write a diary block when the agent has actually authored a summary.
+    # No more `[session-end]` stub lines on every turn — those were noise and
+    # the original complaint that drove this rewrite.
+    #
+    # Robustness: require non-whitespace content (after stripping a possible
+    # UTF-8 BOM) so a zero-byte or whitespace-only or BOM-only file produced
+    # by editors / PowerShell / accidental `: > $SUMMARY` does NOT materialise
+    # an empty block.
+    if [ -f "$SUMMARY" ]; then
+      HAS_CONTENT=$(sed $'1s/^\xef\xbb\xbf//' "$SUMMARY" 2>/dev/null | tr -d '[:space:]')
+      if [ -n "$HAS_CONTENT" ]; then
+        mkdir -p "$DIR"
+        [ ! -f "$DIARY_FILE" ] && printf '# Diary — %s\n\n' "$TODAY" > "$DIARY_FILE"
+        {
+          printf '\n## %s | %s | session-summary | branch=%s story=%s\n\n' \
+            "$NOW" "$PERSONA" "$BRANCH" "${STORY:-none}"
+          # Strip the BOM on the way in so the diary stays clean.
+          sed $'1s/^\xef\xbb\xbf//' "$SUMMARY"
+          # Guarantee a trailing newline so subsequent entries don't run together.
+          printf '\n'
+        } >> "$DIARY_FILE"
+        : > "$SUMMARY"
+      fi
+    fi
     ;;
   postToolUse|PostToolUse)
     case "$TOOL" in

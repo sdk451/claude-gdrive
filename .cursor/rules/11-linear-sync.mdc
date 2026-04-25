@@ -1,0 +1,38 @@
+---
+description: Sync commits to Linear issues
+alwaysApply: true
+---
+# Linear sync
+Every commit on a story branch (`{STORY_ID}/...`, e.g. `TOK-6/s01-...`) must be
+recorded on the matching Linear issue as a comment. The branch's story id is
+the first `[A-Z]+-[0-9]+` token in the branch name.
+
+## Contract — after `git commit` on a story branch
+For each new commit, in chronological order:
+1. Resolve the issue id from the branch name.
+2. Call the `plugin-linear-linear.save_comment` MCP tool with:
+   - `issueId`: the resolved id (e.g. `TOK-6`).
+   - `body`: a short markdown comment containing
+     - back-ticked short hash + subject on the first line,
+     - a one-line `Scope:` summary of files / top-level dirs touched,
+     - a one-line `Verify:` summary (typecheck / lint / test status if relevant),
+     - optionally a longer paragraph for context.
+3. Append the short hash on its own line to `.cursor/linear-synced.txt`. The
+   stop-hook (`linear-sync-prompt.sh`) reads this ledger to know what's done.
+
+Do not skip step 3 — without it the stop hook will keep nudging.
+
+## Enforcement
+`linear-sync-prompt.sh` runs on every `stop` event. It computes
+`git log <base>..HEAD` (base = `@{upstream}` → `origin/main` → `main`) and
+compares short hashes against the ledger. Unsynced commits trigger a
+`followup_message` listing them. The hook never calls Linear directly — only
+the agent does, via the MCP — so no API token is required in the env.
+
+## Notes
+- One comment per commit is the default. Squash multi-commit comments only when
+  the commits land in a single push and share narrative.
+- If the branch has no story id (e.g. `main`, `chore/bump-deps`), the hook is
+  a no-op.
+- The ledger is gitignored: it represents per-clone sync state, not project
+  state.

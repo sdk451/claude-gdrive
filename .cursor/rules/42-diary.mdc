@@ -1,0 +1,43 @@
+---
+description: Project diary — capture real session/work summaries
+alwaysApply: true
+---
+# Diary
+The project diary lives at `docs/diary/{YYYY-MM}/{YYYY-MM-DD}.md`. It is the
+project's narrative audit trail and is committed to git, separate from the
+private memory store (see `41-memory.mdc`).
+
+## When to author a summary
+Write a real session/work summary into `.cursor/session-summary.md` when:
+- a story is completed (after `STORY_COMPLETE`),
+- a foundation document changed (brief, prd, architecture, tech-stack,
+  constitution, ux*, design-system, environments, observability, test-strategy,
+  or a new design under `docs/designs/`),
+- a material decision was made,
+- the session involved meaningful, multi-step work that future readers will
+  want to reconstruct.
+
+Skip it for trivial / single-tool turns — the diary should not narrate every
+edit. Foundation-doc Write/Edit operations are auto-logged as one-line entries
+by the same hook; do not duplicate those in the summary.
+
+## What to write
+Plain markdown, no front-matter. Cover:
+- **What happened** — features built, bugs fixed, decisions made.
+- **Outputs** — files created/changed, commits (short hash), tests, deployments.
+- **Verification** — how you know it works (commands, results).
+- **Next handoff** — open questions, follow-ups, blockers.
+
+Keep it tight — paragraphs, not transcripts. Link instead of pasting; cite
+files / commits / Linear ids.
+
+## How materialisation works
+On every `stop` event, `.cursor/hooks/diary-append.sh`:
+1. If `.cursor/session-summary.md` is non-empty, prepends a timestamped
+   `## <iso-time> | <persona> | session-summary | branch=<b> story=<s>` header
+   and appends the file content to today's diary.
+2. Truncates `.cursor/session-summary.md` so the next session starts fresh.
+3. Exits silently when the source file is missing or empty.
+
+The hook never writes a stub `[session-end]` line — if you want a record,
+author one.
