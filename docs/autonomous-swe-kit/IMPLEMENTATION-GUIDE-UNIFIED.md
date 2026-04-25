@@ -33,17 +33,33 @@ Before you start, have:
 - **A cloud account** for dev/test/staging/prod isolates (AWS, GCP, Azure, Fly.io, Vercel, Cloudflare — match your stack)
 
 Install `uv` if missing:
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 Sanity check:
+
 ```bash
 git --version && node --version && pnpm --version && python3 --version && jq --version
 gh auth status
 ```
 
 Variant-specific installs follow.
+
+---
+
+# Phase 0 — Project Onboarding Workflow (all variants)
+
+Before any of the variant-specific install steps, run the BMAD-style project onboarding workflow. It produces every foundation document the later phases assume exists.
+
+- Workflow file: `docs/autonomous-swe-kit/docs/workflows/0-onboarding/project-onboarding/workflow.md`
+- Cursor command: `/project-onboard`
+- Claude Code / non-Cursor: open `AGENTS.md` and follow the same workflow file manually, persona-by-persona.
+
+The workflow halts at every artifact gate. Do not skip these gates: each one is a deliberate review point and several downstream rules rely on the artifacts being signed off (e.g., the readiness gate for Epic 0). Optional `party-mode` and `advanced-elicitation` sub-workflows are invoked only if their files exist; otherwise the orchestrator falls back to sequential persona handoff.
+
+The onboarding workflow finishes by importing the backlog into Linear under team `Tokenomik` and confirming Epic 0 readiness; only then does the per-story loop in Phase 5 unblock.
 
 ---
 
@@ -74,9 +90,7 @@ Pick **one** variant and follow that section. All other phases converge on share
 
 **Why pick this:** highest local throughput (8+ parallel cloud agents), Cursor Automations trigger on Linear Ready. Best for teams with real Linear velocity and discipline on spend caps. Cost: $200–700/mo steady state, higher without caps.
 
-1–5. Same as B-local **except** enable **Cloud Agents** in Settings → Features.
-6. **Critical — set spending hard cap BEFORE enabling cloud agents:** Settings → Usage → "Stop usage when budget reached" ON, budget = 2–5× your subscription. There is no undo on a $2,000 cloud-agent weekend.
-7. Proceed to Phase 2.
+1–5. Same as B-local **except** enable **Cloud Agents** in Settings → Features. 6. **Critical — set spending hard cap BEFORE enabling cloud agents:** Settings → Usage → "Stop usage when budget reached" ON, budget = 2–5× your subscription. There is no undo on a $2,000 cloud-agent weekend. 7. Proceed to Phase 2.
 
 ## Variant C — Claude Code only
 
@@ -137,16 +151,17 @@ Pick **one** variant and follow that section. All other phases converge on share
    opencode plugin install oh-my-openagent
    ```
 3. **Configure provider routing** — create `~/.opencode/config.yaml`:
+
    ```yaml
    providers:
      anthropic:
        api_key: ${ANTHROPIC_API_KEY}
      zai:
-       api_key: ${ZAI_API_KEY}   # for GLM-5 / GLM-5.1
+       api_key: ${ZAI_API_KEY} # for GLM-5 / GLM-5.1
        base_url: https://open.bigmodel.cn/api/paas/v4/
      openrouter:
        api_key: ${OPENROUTER_API_KEY}
-   
+
    agent_routing:
      planner: anthropic/claude-opus-4.7
      architect: anthropic/claude-opus-4.7
@@ -155,6 +170,7 @@ Pick **one** variant and follow that section. All other phases converge on share
      reviewer: anthropic/claude-sonnet-4.6
      ux-engineer: anthropic/claude-opus-4.7
    ```
+
 4. **Install Spec Kit:**
    ```bash
    uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
@@ -174,6 +190,7 @@ Pick **one** variant and follow that section. All other phases converge on share
 - MCP (Linear, Serena, MemPalace): configured in Copilot's VS Code settings for local Agent Mode and in the GitHub Actions workflow for the Coding Agent (requires a self-hosted runner or a reachable MCP endpoint).
 
 Installation:
+
 1. **Subscribe to Copilot Pro ($10/mo) or Pro+ ($39/mo).** Note: new Pro/Pro+ sign-ups paused from 2026-04-20 per GitHub docs — existing subs unaffected; Business and Enterprise still open.
 2. **Install the Copilot extension** in VS Code / JetBrains / whatever IDE you use.
 3. **Enable Coding Agent** on your repo: repo Settings → Copilot → Coding agent → on.
@@ -245,9 +262,10 @@ cp autonomous-swe-kit/agents/*.md .github/instructions/  # Copilot reads .github
 ```
 
 **Copilot variant** additionally: rename each to `<name>.instructions.md`, add the front-matter Copilot expects:
+
 ```yaml
 ---
-applyTo: "**"   # or a path glob
+applyTo: "**" # or a path glob
 ---
 ```
 
@@ -258,6 +276,7 @@ Cline variant: create `.cline/workflows/` entries that invoke each persona — C
 Shared across all variants. Install once.
 
 **Linear MCP:**
+
 - **Cursor (B-local / B-cloud / D if using Cursor):** Settings → MCP → Add server → Linear → OAuth.
 - **Claude Code (C):** `claude mcp add linear --transport http https://mcp.linear.app/mcp --scope user`
 - **OpenCode (H):** Edit `~/.opencode/config.yaml`:
@@ -270,13 +289,19 @@ Shared across all variants. Install once.
 - **Copilot (E):** VS Code → Copilot settings → MCP servers → add with the OAuth flow.
 
 **Serena MCP** (symbol-level codebase context — see `MEMORY-AND-CONTEXT.md` §4):
+
 - **Cursor:** Settings → MCP → Add server → paste:
   ```json
   {
     "mcpServers": {
       "serena": {
         "command": "uvx",
-        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
+        "args": [
+          "--from",
+          "git+https://github.com/oraios/serena",
+          "serena",
+          "start-mcp-server"
+        ]
       }
     }
   }
@@ -288,7 +313,13 @@ Shared across all variants. Install once.
   mcp_servers:
     serena:
       command: uvx
-      args: ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
+      args:
+        [
+          "--from",
+          "git+https://github.com/oraios/serena",
+          "serena",
+          "start-mcp-server",
+        ]
   ```
 - **Copilot:** works in local VS Code Agent Mode; the Coding Agent needs a self-hosted GitHub Actions runner with Serena reachable at `http://localhost:9121` (or a remote Serena deployment).
 
@@ -296,14 +327,14 @@ Shared across all variants. Install once.
 
 **Pick one.** Both satisfy session memory + retrieval. Differences:
 
-| | MemPalace | mcp-memory-service |
-|---|---|---|
-| Maturity | New (April 2026), Python API still churning | Mature, Apache 2.0 |
-| Storage | ChromaDB + wings/rooms/halls metadata | SQLite + knowledge graph with typed edges |
-| Diarising | Per-agent diary tools built in | Session-based storage; diarising via our hook |
-| Search | Vector search via ChromaDB default embeddings | Hybrid BM25 + vector, with decay/compression |
-| Setup | `pip install mempalace`, 2 deps | Docker or Python; more config |
-| Best for | Teams already using MemPalace; diary-first mental model | Teams wanting a production-hardened memory layer |
+|           | MemPalace                                               | mcp-memory-service                               |
+| --------- | ------------------------------------------------------- | ------------------------------------------------ |
+| Maturity  | New (April 2026), Python API still churning             | Mature, Apache 2.0                               |
+| Storage   | ChromaDB + wings/rooms/halls metadata                   | SQLite + knowledge graph with typed edges        |
+| Diarising | Per-agent diary tools built in                          | Session-based storage; diarising via our hook    |
+| Search    | Vector search via ChromaDB default embeddings           | Hybrid BM25 + vector, with decay/compression     |
+| Setup     | `pip install mempalace`, 2 deps                         | Docker or Python; more config                    |
+| Best for  | Teams already using MemPalace; diary-first mental model | Teams wanting a production-hardened memory layer |
 
 #### Option A — MemPalace
 
@@ -314,6 +345,7 @@ mempalace init .
 ```
 
 Register MCP for your variant:
+
 - **Cursor:** Settings → MCP → Add server: `{ "mcpServers": { "mempalace": { "command": "mempalace", "args": ["mcp"] } } }`
 - **Claude Code:** `claude mcp add mempalace -- mempalace mcp`
 - **Cline:** Cline settings → MCP → add command `mempalace` args `["mcp"]`.
@@ -341,6 +373,7 @@ docker compose up -d
 ```
 
 Register MCP:
+
 - **Cursor / Cline / OpenCode:** Add MCP server pointing to `http://localhost:8765/mcp` (streamable HTTP). The exact JSON varies by tool; all support HTTP-transport MCP.
 - **Claude Code:** `claude mcp add memory --transport http http://localhost:8765/mcp --scope user`
 - **Copilot:** local VS Code works; Coding Agent needs the memory service deployed somewhere GitHub Actions can reach.
@@ -689,6 +722,7 @@ chmod +x scripts/run-targeted-tests.sh
 ### 2.11 Register hooks (variant-specific)
 
 **Variants B-local / B-cloud (Cursor):**
+
 ```bash
 cat > .cursor/hooks/wrappers.ts <<'EOF'
 import { spawnSync } from "child_process";
@@ -718,6 +752,7 @@ EOF
 ```
 
 **Variant C (Claude Code):**
+
 ```bash
 cat > .claude/settings.json <<'EOF'
 {
@@ -748,11 +783,12 @@ EOF
 ```
 
 **Variant D (Cline):** Cline hooks are set via a combination of `.cline/workflows/` and the project-level `.clinerules`. The scripts are invoked through Cline's command hooks:
+
 ```bash
 cat > .clinerules <<'EOF'
 # Project rules — loaded every session
 pre_tool_bash: ./scripts/hooks/block-dangerous.sh
-pre_tool_write: 
+pre_tool_write:
   - ./scripts/hooks/enforce-plan-mode.sh
   - ./scripts/hooks/enforce-tokens.sh
 post_tool_write:
@@ -765,11 +801,14 @@ EOF
 (Cline's hook schema evolves; check latest docs at cline.bot if fields differ.)
 
 **Variant H (OpenCode):** Edit `~/.opencode/config.yaml`:
+
 ```yaml
 hooks:
   pre_tool_bash: ./scripts/hooks/block-dangerous.sh
-  pre_tool_write: [./scripts/hooks/enforce-plan-mode.sh, ./scripts/hooks/enforce-tokens.sh]
-  post_tool_write: [./scripts/hooks/vibecop-lint.sh, ./scripts/hooks/diary-append.sh]
+  pre_tool_write:
+    [./scripts/hooks/enforce-plan-mode.sh, ./scripts/hooks/enforce-tokens.sh]
+  post_tool_write:
+    [./scripts/hooks/vibecop-lint.sh, ./scripts/hooks/diary-append.sh]
   stop: ./scripts/hooks/verify-completion-promise.sh
 ```
 
@@ -876,6 +915,7 @@ Answer up to 5 questions. Iterate until the brief is tight.
 Same pattern for all variants — invoke the `architect` persona with "Load docs/brief.md. Produce prd.md, architecture.md, tech-stack.md, ux.md, constitution.md, backlog.md."
 
 Review each. Push back on:
+
 - Unpinned versions in `tech-stack.md`
 - Weak non-negotiables in `constitution.md`
 - Stories longer than 3 hours of agent work in `backlog.md`
@@ -922,6 +962,7 @@ git worktree add ../$(basename $REPO_DIR).epic0-ux -b epic0/ux
 ### 4.2 Invoke each track
 
 **Variant-specific parallelism:**
+
 - **B-local:** three Cursor windows or three VS Code sessions — 2–4 parallel local agents tolerable.
 - **B-cloud:** Cursor Agents Window spawns all three as cloud agents. Fastest.
 - **C:** three `claude` sessions. Fine for Epic 0 one-time work.
@@ -930,6 +971,7 @@ git worktree add ../$(basename $REPO_DIR).epic0-ux -b epic0/ux
 - **E:** three GitHub Issues assigned to @github-copilot; three PRs in parallel.
 
 Prompts per track:
+
 - Platform: "Use the platform-engineer agent. Load docs/architecture.md and docs/tech-stack.md. Build Epic 0 deliverables and ship hello-world through dev → test → staging → prod."
 - Testing: "Use the test-architect agent. Produce docs/test-strategy.md and scaffold the six-tier harness. Create Vitest, Playwright, visual-regression, and ux-flow configs. Write example trivial passing tests in each tier to validate the plumbing. Update .cursor/rules/10-testing.mdc."
 - UX: "Use the ux-engineer agent. Build tokens/, run `pnpm dlx shadcn@latest init --base base-ui`, wrap primitives, install Storybook with addon-a11y, commit visual regression baseline, write docs/design-system.md."
@@ -998,6 +1040,7 @@ If the Planner classifies the story as UI-new, run `ux-engineer` first, then re-
 Prompt:
 
 > Use the test-architect agent for story AUTH-101. Do all of:
+>
 > 1. Read docs/designs/AUTH-101.md.
 > 2. Decide which test tiers apply (unit, api, component, e2e, visual, ux-flow). Multiple tiers are expected for anything non-trivial.
 > 3. Write failing tests across all applicable tiers.
@@ -1020,13 +1063,14 @@ The Test Architect's value here is **selecting** the right tiers. A pure backend
 Prompt:
 
 > Use the implementer agent for story AUTH-101. Follow the Extended TDD loop:
+>
 > 1. Read docs/designs/AUTH-101.md (the design).
 > 2. Read docs/tests/AUTH-101.md (the test plan) and docs/tests/AUTH-101-targets.txt (the exact targets).
 > 3. Run ./scripts/run-targeted-tests.sh docs/tests/AUTH-101-targets.txt — confirm RED across tiers.
 > 4. Iterate: pick the smallest failing test across any tier, write the minimum code to make it pass, run the targeted suite again. Continue until the entire suite is green.
 > 5. For UI-affecting tiers (component, e2e, visual, ux-flow), prefer Serena-assisted symbol-level edits over full-file rewrites.
 > 6. When all targets are green, emit STORY_COMPLETE in .cursor/scratchpad.md.
-> The verify-completion-promise hook will block you if any targeted test is still red.
+>    The verify-completion-promise hook will block you if any targeted test is still red.
 
 Watch the loop. Typical story: 5–20 iterations. Complex multi-tier stories: up to the 30 cap. If the Implementer hits the cap, the hook surfaces a BLOCKED state — stop and let a human revisit.
 
@@ -1051,6 +1095,7 @@ gh pr merge $PR --squash --delete-branch
 ### 5.8 Calibrate
 
 Before story 2:
+
 - Did the Test Architect select the right tiers? Missing tier → add to strategy. Over-selection → tune persona.
 - Did the Implementer get stuck mid-tier? Usually a design gap — strengthen Planner's output structure.
 - Did any targeted test trivially pass (e.g. assertion missing)? Strengthen Test Architect's rule about assertion quality.
@@ -1065,6 +1110,7 @@ Update personas, rules, hooks. Commit.
 ### 6.1 Enable parallel execution
 
 **Variant B-local:**
+
 ```bash
 # Local parallelism is bounded by CPU — 2–4 agents realistic
 cat > scripts/run-parallel.sh <<'EOF'
@@ -1089,6 +1135,7 @@ EOF
 **Variant B-cloud:** the Cursor Agents Window spawns cloud agents natively — no script needed. Set per-run budget caps in each Automation.
 
 **Variant C:**
+
 ```bash
 cat > scripts/run-parallel.sh <<'EOF'
 #!/bin/bash
@@ -1109,6 +1156,7 @@ EOF
 ```
 
 **Variant D:**
+
 ```bash
 cat > scripts/run-parallel.sh <<'EOF'
 #!/bin/bash
@@ -1128,6 +1176,7 @@ EOF
 ```
 
 **Variant H:**
+
 ```bash
 # OpenCode with GLM-5 for Implementer, Opus for Planner — config handled in ~/.opencode/config.yaml
 cat > scripts/run-parallel.sh <<'EOF'
@@ -1156,11 +1205,13 @@ chmod +x scripts/run-parallel.sh
 ### 6.2 Always-on pickup of Ready stories
 
 **Variants B-local / B-cloud:** Cursor → Automations → New automation:
+
 - Trigger: Linear webhook → status changed to "Ready"
 - Action: spawn planner → test-architect → implementer
 - Budget: per-run cap ($5–20)
 
 **Variant C:** GitHub Actions cron:
+
 ```yaml
 # .github/workflows/claude-pickup.yml
 name: Claude pickup of Ready stories
@@ -1201,11 +1252,13 @@ Wire cron workflows: Planner weekly, Generator on spec changes, Healer on failur
 ### 6.4 Monday rollup
 
 Invoke any agent:
+
 > Add an automation that runs every Monday at 9am. Summarise the past week: merged PRs, test pass rate (per tier), coverage trend, flaky tests, visual regression diffs. Read docs/diary/ for that week's entries and summarise who did what. Post to Slack via the Slack MCP.
 
 ### 6.5 Onlook roundtrip
 
 Pick a merged UI story. Open the running app in Onlook. Tweak. Confirm:
+
 - Onlook creates a branch
 - Edit maps to correct `.tsx`
 - Tailwind classes update, no hex literals leak through (the `enforce-tokens` check stops them)
@@ -1248,33 +1301,33 @@ Pick a merged UI story. Open the running app in Onlook. Tweak. Confirm:
 
 # Phase 8 — Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Planner writes code despite read-only | `disallowedTools` not set | Re-check frontmatter; verify with `/agents` |
-| Hooks don't fire (C) | `.claude/settings.json` missing | `chmod +x`; confirm via `claude --debug` |
-| Hooks don't fire (B) | Cursor hook schema drifted | Read Cursor's latest hook docs |
-| Hooks don't fire (D) | `.clinerules` wrong field names | Check Cline docs for current field names |
-| Hooks don't fire (E/Copilot) | Required checks not configured | Settings → Branches → Protection rule |
-| Implementer exits without STORY_COMPLETE | Stop hook not blocking | Check `verify-completion-promise.sh` registered in Stop |
-| Targeted tests don't run | Missing targets file or wrong runner | Check `docs/tests/{story-id}-targets.txt` exists; run runner manually |
-| Runner says "config not found" for a tier | Epic 0 didn't set up that tier's config | Add e.g. `vitest.api.config.ts` or `playwright.visual.config.ts` and commit |
-| Agents drift from architecture | Rules file too long | Cut always-on content under ~2,000 tokens |
-| Hex colours keep appearing | `enforce-tokens.sh` not matching | Test hook manually with sample stdin JSON |
-| Visual regression flakes | Animations/fonts | `animations: "disabled"`, pin Playwright browser, `--update-snapshots` only on intentional changes |
-| Worktree collisions | Branches deleted, worktrees not cleaned | `git worktree prune` post-merge |
-| Linear MCP auth lost | OAuth expired | Remove & re-add |
-| Cost runs away (B-cloud) | No per-run cap | Set Cursor Automation budget; Settings → Usage hard cap |
-| Cost runs away (C) | No `--max-budget-usd` | Add to every headless invocation |
-| Cost runs away (D) | API calls unbounded | Add `--max-iterations` and per-session budget watcher |
-| Ollama too slow for Implementer (D) | Small GPU | Swap to `qwen2.5-coder:7b` for faster (lower quality) OR escalate specific tasks to API |
-| GLM responses look wrong (H) | Provider routing misconfigured | Check `~/.opencode/config.yaml` agent_routing block; confirm provider API key set |
-| Copilot Coding Agent stuck (E) | Premium request budget depleted | Check Settings → Copilot → Premium requests; top up or upgrade tier |
-| MemPalace init hangs | ChromaDB dep | `pip install --upgrade chromadb pyyaml` |
-| mcp-memory-service unreachable | Docker not running or port conflict | `docker compose ps`; check port 8765 |
-| Diary entries missing for some personas | Soft prompt ignored | Strengthen 41-memory.mdc; rely on diary-append hook |
-| Reviewer approves everything | Severity rubric too loose | Tighten persona — move patterns to BLOCKING |
-| Serena MCP disconnected | `uvx` not on PATH | Install `uv`, restart IDE |
-| Serena empty for a language | LSP not installed | `uvx … serena install-lsp <language>` |
+| Symptom                                   | Likely cause                            | Fix                                                                                                |
+| ----------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Planner writes code despite read-only     | `disallowedTools` not set               | Re-check frontmatter; verify with `/agents`                                                        |
+| Hooks don't fire (C)                      | `.claude/settings.json` missing         | `chmod +x`; confirm via `claude --debug`                                                           |
+| Hooks don't fire (B)                      | Cursor hook schema drifted              | Read Cursor's latest hook docs                                                                     |
+| Hooks don't fire (D)                      | `.clinerules` wrong field names         | Check Cline docs for current field names                                                           |
+| Hooks don't fire (E/Copilot)              | Required checks not configured          | Settings → Branches → Protection rule                                                              |
+| Implementer exits without STORY_COMPLETE  | Stop hook not blocking                  | Check `verify-completion-promise.sh` registered in Stop                                            |
+| Targeted tests don't run                  | Missing targets file or wrong runner    | Check `docs/tests/{story-id}-targets.txt` exists; run runner manually                              |
+| Runner says "config not found" for a tier | Epic 0 didn't set up that tier's config | Add e.g. `vitest.api.config.ts` or `playwright.visual.config.ts` and commit                        |
+| Agents drift from architecture            | Rules file too long                     | Cut always-on content under ~2,000 tokens                                                          |
+| Hex colours keep appearing                | `enforce-tokens.sh` not matching        | Test hook manually with sample stdin JSON                                                          |
+| Visual regression flakes                  | Animations/fonts                        | `animations: "disabled"`, pin Playwright browser, `--update-snapshots` only on intentional changes |
+| Worktree collisions                       | Branches deleted, worktrees not cleaned | `git worktree prune` post-merge                                                                    |
+| Linear MCP auth lost                      | OAuth expired                           | Remove & re-add                                                                                    |
+| Cost runs away (B-cloud)                  | No per-run cap                          | Set Cursor Automation budget; Settings → Usage hard cap                                            |
+| Cost runs away (C)                        | No `--max-budget-usd`                   | Add to every headless invocation                                                                   |
+| Cost runs away (D)                        | API calls unbounded                     | Add `--max-iterations` and per-session budget watcher                                              |
+| Ollama too slow for Implementer (D)       | Small GPU                               | Swap to `qwen2.5-coder:7b` for faster (lower quality) OR escalate specific tasks to API            |
+| GLM responses look wrong (H)              | Provider routing misconfigured          | Check `~/.opencode/config.yaml` agent_routing block; confirm provider API key set                  |
+| Copilot Coding Agent stuck (E)            | Premium request budget depleted         | Check Settings → Copilot → Premium requests; top up or upgrade tier                                |
+| MemPalace init hangs                      | ChromaDB dep                            | `pip install --upgrade chromadb pyyaml`                                                            |
+| mcp-memory-service unreachable            | Docker not running or port conflict     | `docker compose ps`; check port 8765                                                               |
+| Diary entries missing for some personas   | Soft prompt ignored                     | Strengthen 41-memory.mdc; rely on diary-append hook                                                |
+| Reviewer approves everything              | Severity rubric too loose               | Tighten persona — move patterns to BLOCKING                                                        |
+| Serena MCP disconnected                   | `uvx` not on PATH                       | Install `uv`, restart IDE                                                                          |
+| Serena empty for a language               | LSP not installed                       | `uvx … serena install-lsp <language>`                                                              |
 
 ---
 
@@ -1328,4 +1381,4 @@ Keep calibrating. Treat every friction as a rule, hook, or tier selection you ha
 
 ---
 
-*End of unified implementation guide.*
+_End of unified implementation guide._

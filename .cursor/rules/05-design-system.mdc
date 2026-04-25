@@ -1,0 +1,17 @@
+---
+description: Design-system rules — only relevant when UI code lands
+globs:
+  - components/**
+  - "**/*.tsx"
+  - tokens/**
+  - storybook/**
+alwaysApply: false
+---
+# Design system
+
+Source of truth: [docs/design-system.md](../../docs/design-system.md)
+
+- v1 has **no UI surface**; this rule stays inert until UI code is added under `components/**` or `**/*.tsx`.
+- If you are adding a UI surface, you are also adding scope: pause and write a v2 trigger entry in `docs/design-system.md` before merging.
+- When UI does land: tokens follow DTCG v1 (Style Dictionary), primitives use shadcn/ui + Base UI / Radix, Storybook ships with `addon-a11y`, visual baselines via Playwright `toHaveScreenshot()`.
+- Until then: tool descriptions, OAuth consent strings, and README copy are the only "design surfaces" — keep them plain, short, and screen-reader friendly.

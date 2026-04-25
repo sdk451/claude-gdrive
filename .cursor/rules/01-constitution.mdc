@@ -1,0 +1,16 @@
+---
+description: Project constitution — non-negotiable principles
+alwaysApply: true
+---
+# Constitution
+
+Source of truth: [docs/constitution.md](../../docs/constitution.md)
+
+- Per-user OAuth, never service accounts. `drive.file` is the default scope.
+- Per-session token isolation; refresh tokens encrypted at rest (AES-256-GCM).
+- Implement MCP exactly as specified (Streamable HTTP, OAuth 2.0 + PKCE, DCR/CIMD).
+- Drive content is untrusted input; destructive ops require explicit user intent and `destructiveHint: true`.
+- No credentials, tokens, codes, or refresh-token material in logs — ever.
+- Specs and designs live in `docs/`; code without a spec is not a feature.
+- Diary records intent, not noise: end-of-session/workflow summaries and significant decisions only.
+- Definition of Done: spec → targeted tests → implementation → review → diary (if significant) → Linear closure.

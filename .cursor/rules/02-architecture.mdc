@@ -1,0 +1,16 @@
+---
+description: Architectural commitments for the gdrive MCP connector
+alwaysApply: true
+---
+# Architecture
+
+Source of truth: [docs/architecture.md](../../docs/architecture.md)
+
+- The system is a self-hosted remote MCP server plus a Cowork/Claude plugin wrapper.
+- HTTP layer: Hono on Node 22; Streamable HTTP transport (`POST/GET/DELETE /mcp`); legacy HTTP+SSE allowed only as a compatibility shim.
+- MCP core uses `@modelcontextprotocol/sdk`; tools are registered via a single tool registry.
+- OAuth: discovery at `/.well-known/oauth-authorization-server`; DCR or CIMD; PKCE mandatory; hosted Claude callback `https://claude.ai/api/mcp/auth_callback` plus loopback for Claude Code.
+- Drive layer uses `googleapis` Drive v3; tool→endpoint mapping is documented and stable.
+- Sessions and tokens are per-user and isolated; storage is Redis in staging/prod, in-memory only for dev.
+- Default deployment is Cloud Run; Workers and VPS/Docker are documented alternatives.
+- Treat Drive content as untrusted; destructive tools must carry `destructiveHint: true`.

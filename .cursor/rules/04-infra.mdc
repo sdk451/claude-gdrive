@@ -1,0 +1,22 @@
+---
+description: Infrastructure and observability rules for infra/deploy code
+globs:
+  - infra/**
+  - .github/workflows/**
+  - Dockerfile
+  - docker-compose*.yml
+alwaysApply: false
+---
+# Infrastructure
+
+Sources of truth: [docs/environments.md](../../docs/environments.md), [docs/observability.md](../../docs/observability.md)
+
+- Cloud Run is the canonical deployment target. Workers and VPS/Docker are alternatives, not the default CI path.
+- All secrets live in Secret Manager (or Workers Secrets); no `.env` files committed.
+- CI deploys via Workload Identity Federation; long-lived service-account keys in repo secrets are forbidden.
+- Container base: `node:22-bookworm-slim`, runs as non-root, listens on `$PORT`.
+- Image promotion is digest-based — never rebuild between staging and prod.
+- Logs are `pino` JSON with required fields: `request_id`, `session_id_hash`, `outcome`, `latency_ms`, plus tool/drive context where applicable.
+- Redaction config covers `authorization`, `cookie`, `access_token`, `refresh_token`, `code`, `id_token`. PRs that touch OAuth must re-verify the redaction list.
+- Alerts: `tools.list.empty` (page), `oauth.refresh_failure` >1% (page), `cloud_run_5xx` >1% (page), p95 latency >3 s (warn), secret-in-log canary (page).
+- Each pageable alert has a runbook in `docs/runbooks/`.

@@ -5,6 +5,7 @@ A complete blueprint and starter files for running an autonomous software engine
 ## Contents
 
 ### Design documents (read in this order)
+
 1. `autonomous-swe-design.md` — the core design. Platform landscape, four-layer architecture, the seven base personas, the autonomous story loop, Epic 0, testing strategy, hooks/rules/branching, migration path.
 2. `autonomous-swe-design-ux-addendum.md` — the UX/UI extension. Free-first tool stack, paper.design analysis, Onlook roundtrip, UX Engineer persona, design tokens, visual regression.
 3. `MEMORY-AND-CONTEXT.md` — the memory and codebase context layer. Serena for structural code understanding; MemPalace or mcp-memory-service for session memory; diary-append hook as tool-independent backup.
@@ -13,6 +14,7 @@ A complete blueprint and starter files for running an autonomous software engine
 6. `IMPLEMENTATION-GUIDE.md` — original two-path guide (Hybrid + Pure Cursor). Retained for readers who just want that subset.
 
 ### Agent personas (drop into `.claude/agents/` and/or `.cursor/commands/`)
+
 All eight personas work in both Claude Code and Cursor formats.
 
 - `agents/analyst.md` — **Mara**. Discovery, domain research, project brief.
@@ -23,6 +25,16 @@ All eight personas work in both Claude Code and Cursor formats.
 - `agents/implementer.md` — **Imp**. TDD Ralph loop executor. Iterates until green.
 - `agents/reviewer.md` — **Rev**. Multi-angle PR review (security, perf, a11y, quality, coverage, UI).
 - `agents/ux-engineer.md` — **Ume**. Design tokens, primitives, Storybook, visual regression.
+
+## First-run: project onboarding workflow
+
+Before path selection, run the **BMAD-style project onboarding workflow** to populate the foundation document set, generate Epic 0, and import the backlog into Linear:
+
+- Workflow: `docs/autonomous-swe-kit/docs/workflows/0-onboarding/project-onboarding/workflow.md`
+- Cursor command: `/project-onboard`
+- Outputs: `docs/brief.md`, `docs/prd.md`, `docs/architecture.md`, `docs/tech-stack.md`, `docs/ux-principles.md`, `docs/ux.md`, `docs/constitution.md`, `docs/environments.md`, `docs/observability.md`, `docs/test-strategy.md`, `docs/design-system.md`, `docs/backlog.md`, `.cursor/rules/01..10`, `AGENTS.md`, plus a Linear project (team `Tokenomik`) with Epic 0 first.
+
+The orchestrator loads each persona for the relevant step, halts at every artifact gate, tracks state in `docs/_onboarding-state.md`, and only invokes optional `party-mode` / `advanced-elicitation` sub-workflows if those files exist.
 
 ## Quick path selector
 
@@ -42,37 +54,37 @@ The `IMPLEMENTATION-GUIDE.md` documents Paths A and B step-by-step. Paths C and 
 
 ## Persona quick-reference
 
-| # | Persona | Nickname | When runs | Primary output |
-|---|---------|----------|-----------|----------------|
-| 1 | Analyst | Mara | Ideation | `docs/brief.md` |
-| 2 | Architect | Arc | Ideation | `prd.md`, `architecture.md`, `tech-stack.md`, `ux.md`, `constitution.md`, `backlog.md` |
-| 3 | Platform Engineer | Plat | Epic 0 + as-needed | `infra/`, `.github/workflows/`, `environments.md` |
-| 4 | Test Architect | Tess | Epic 0 + per story | `test-strategy.md`, `docs/tests/{id}.md`, test harness |
-| 5 | Planner | Plan | Per story (first) | `docs/designs/{id}.md` |
-| 6 | Implementer | Imp | Per story | Code + unit tests + commits |
-| 7 | Reviewer | Rev | Per story (PR) | Structured PR review |
-| 8 | UX Engineer | Ume | Ideation + Epic 0 + per UI story | `tokens/`, `components/primitives/`, Storybook, baseline |
+| #   | Persona           | Nickname | When runs                        | Primary output                                                                         |
+| --- | ----------------- | -------- | -------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | Analyst           | Mara     | Ideation                         | `docs/brief.md`                                                                        |
+| 2   | Architect         | Arc      | Ideation                         | `prd.md`, `architecture.md`, `tech-stack.md`, `ux.md`, `constitution.md`, `backlog.md` |
+| 3   | Platform Engineer | Plat     | Epic 0 + as-needed               | `infra/`, `.github/workflows/`, `environments.md`                                      |
+| 4   | Test Architect    | Tess     | Epic 0 + per story               | `test-strategy.md`, `docs/tests/{id}.md`, test harness                                 |
+| 5   | Planner           | Plan     | Per story (first)                | `docs/designs/{id}.md`                                                                 |
+| 6   | Implementer       | Imp      | Per story                        | Code + unit tests + commits                                                            |
+| 7   | Reviewer          | Rev      | Per story (PR)                   | Structured PR review                                                                   |
+| 8   | UX Engineer       | Ume      | Ideation + Epic 0 + per UI story | `tokens/`, `components/primitives/`, Storybook, baseline                               |
 
 ## Tool dependencies
 
-| Role | Tool | Path A | Path B | Cost |
-|---|---|---|---|---|
-| Primary IDE | Cursor 3 | ✓ | ✓ | $20–60/mo Pro |
-| CLI agent | Claude Code | ✓ | — | Anthropic API |
-| Cursor CLI (for scripts) | `cursor-agent` | ✓ | ✓ | Included |
-| Specs | GitHub Spec Kit | ✓ | ✓ | Free |
-| Kanban | Linear | ✓ | ✓ | Free tier fine |
-| Codebase context | **Serena** (MCP) | ✓ | ✓ | Free |
-| Session memory + diarising | **MemPalace** (MCP) | ✓ | ✓ | Free, local |
-| Primitives | shadcn/ui + Base UI or Radix | ✓ | ✓ | Free |
-| Tokens | DTCG v1 + Style Dictionary | ✓ | ✓ | Free |
-| Storybook | Storybook + addon-a11y | ✓ | ✓ | Free |
-| E2E | Playwright + Test Agents | ✓ | ✓ | Free |
-| Visual regression | Playwright `toHaveScreenshot()` | ✓ | ✓ | Free |
-| Roundtrip editor | Onlook | ✓ | ✓ (optional if Cursor Design Mode suffices) | Free (Apache 2.0) |
-| AI canvas | paper.design | ✓ | ✓ | Free tier 100 MCP calls/wk |
-| Design handoff (alt) | Penpot | ✓ | ✓ | Free, unlimited |
-| Linting | vibecop (keep) | ✓ | ✓ | Free |
+| Role                       | Tool                            | Path A | Path B                                      | Cost                       |
+| -------------------------- | ------------------------------- | ------ | ------------------------------------------- | -------------------------- |
+| Primary IDE                | Cursor 3                        | ✓      | ✓                                           | $20–60/mo Pro              |
+| CLI agent                  | Claude Code                     | ✓      | —                                           | Anthropic API              |
+| Cursor CLI (for scripts)   | `cursor-agent`                  | ✓      | ✓                                           | Included                   |
+| Specs                      | GitHub Spec Kit                 | ✓      | ✓                                           | Free                       |
+| Kanban                     | Linear                          | ✓      | ✓                                           | Free tier fine             |
+| Codebase context           | **Serena** (MCP)                | ✓      | ✓                                           | Free                       |
+| Session memory + diarising | **MemPalace** (MCP)             | ✓      | ✓                                           | Free, local                |
+| Primitives                 | shadcn/ui + Base UI or Radix    | ✓      | ✓                                           | Free                       |
+| Tokens                     | DTCG v1 + Style Dictionary      | ✓      | ✓                                           | Free                       |
+| Storybook                  | Storybook + addon-a11y          | ✓      | ✓                                           | Free                       |
+| E2E                        | Playwright + Test Agents        | ✓      | ✓                                           | Free                       |
+| Visual regression          | Playwright `toHaveScreenshot()` | ✓      | ✓                                           | Free                       |
+| Roundtrip editor           | Onlook                          | ✓      | ✓ (optional if Cursor Design Mode suffices) | Free (Apache 2.0)          |
+| AI canvas                  | paper.design                    | ✓      | ✓                                           | Free tier 100 MCP calls/wk |
+| Design handoff (alt)       | Penpot                          | ✓      | ✓                                           | Free, unlimited            |
+| Linting                    | vibecop (keep)                  | ✓      | ✓                                           | Free                       |
 
 All tools listed as "Free" are genuinely free forever for the scope described — no trial periods or feature gates that affect the workflow.
 
@@ -88,6 +100,7 @@ All tools listed as "Free" are genuinely free forever for the scope described �
 ## What changed vs the previous revision
 
 This revision adds:
+
 - **`MEMORY-AND-CONTEXT.md`** — a dedicated review of MemPalace vs Serena vs Cipher/ByteRover vs OpenMemory vs mcp-memory-service, with the recommendation to combine **Serena (codebase context) + MemPalace (session memory + diary) + a tool-independent `diary-append` hook**.
 - **Path B (Pure Cursor)** — a full alternative implementation path for users who don't want Claude Code. Every phase and command now has Path A / Path B callouts.
 - **Rules 40 (Serena) and 41 (MemPalace)** — wired into every agent's always-on context.

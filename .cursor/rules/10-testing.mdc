@@ -1,0 +1,20 @@
+---
+description: Test strategy — applies when editing tests or test infra
+globs:
+  - tests/**
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - vitest.config.*
+  - scripts/run-targeted-tests.sh
+alwaysApply: false
+---
+# Testing
+
+Source of truth: [docs/test-strategy.md](../../docs/test-strategy.md)
+
+- Tiers: unit (Vitest) → contract (MCP SDK in-process) → integration (Drive API stubs via `msw`/`nock`) → live canary (real Drive on a test Workspace, nightly) → connector E2E (MCP Inspector).
+- Every story carries a `docs/tests/<story-id>-targets.txt` listing test file globs. The `verify-completion-promise` hook only emits `STORY_COMPLETE` when those targets pass via `scripts/run-targeted-tests.sh`.
+- Coverage: ≥80% lines on changed files; ≥70% project-wide. Regressions on changed files block merge.
+- Mandatory regression tests: `tools.list.returns_full_set_after_oauth`, `tools.list.never_empty_post_init`, `oauth.refresh.silent_success`. These run on every PR.
+- Live-integration tests use a dedicated test Workspace, never a developer's account; gated behind `TEST_LIVE_DRIVE=1`.
+- No Playwright / visual regression in v1 (no UI). Add the relevant tier here if v2 ships UI.

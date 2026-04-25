@@ -1,0 +1,18 @@
+---
+description: Tech stack constraints
+alwaysApply: true
+---
+# Tech stack
+
+Source of truth: [docs/tech-stack.md](../../docs/tech-stack.md)
+
+- Node.js 22 LTS, TypeScript 5.x, ESM only.
+- HTTP framework: Hono + `@hono/node-server`.
+- MCP SDK: `@modelcontextprotocol/sdk` (TypeScript). Streamable HTTP first.
+- Google: `googleapis` + `google-auth-library`; Drive API v3.
+- Sessions/storage: `ioredis` against Redis (Memorystore in prod) or Durable Objects on Workers; in-memory map for dev only.
+- Logging: `pino` JSON to stdout with redaction. Optional Sentry via `SENTRY_DSN`.
+- Testing: Vitest for unit/contract/integration; MCP Inspector for connector validation. No Playwright/UI tooling in v1.
+- Lint/format: ESLint + Prettier + vibecop; CI enforces all three.
+- CI/CD: GitHub Actions (`pr-validation.yml`, `ci.yml`, `release.yml`, `security.yml`); Cloud Run is the default target via Workload Identity Federation.
+- Plugin: file-only bundle (`.claude-plugin/plugin.json`, `.mcp.json`, skills, optional commands, README).

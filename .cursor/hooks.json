@@ -1,11 +1,6 @@
 {
   "version": 1,
   "hooks": {
-    "sessionStart": [
-      {
-        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh"
-      }
-    ],
     "preToolUse": [
       {
         "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/block-dangerous.sh",
@@ -27,7 +22,7 @@
       },
       {
         "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh",
-        "matcher": "Write|Edit|Shell|Bash"
+        "matcher": "Write|Edit"
       }
     ],
     "stop": [
