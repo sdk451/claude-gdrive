@@ -1,0 +1,11 @@
+* text=auto
+
+# Bash scripts must be LF to run under Git Bash / Linux.
+*.sh text eol=lf
+
+# Common configs (keep consistent; harmless if already LF).
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
