@@ -1,19 +1,22 @@
 name: pr-validation
 
-# Minimal scaffold from TOK-6 / S0.1.
-# TOK-7 / S0.2 extends this with: targeted-test runner, markdown lint,
-# concurrency cancellation, and the required-status-check rule.
+# PR validation: install, typecheck, eslint, unit tests, markdown lint,
+# targeted-test runner (TOK-7 / S0.2). Concurrency cancels superseded runs.
 
 on:
   pull_request:
     branches: [main]
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   validate:
-    name: install / typecheck / lint / test (node ${{ matrix.node }})
+    name: install / typecheck / lint / test / lint:md / targeted
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -41,8 +44,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Lint
+      - name: Lint (ESLint)
         run: pnpm lint
+
+      - name: Lint (Markdown)
+        run: pnpm lint:md
 
       - name: Test (unit)
         run: pnpm test
+
+      - name: Targeted tests (TOK-7)
+        run: bash scripts/run-targeted-tests.sh docs/tests/TOK-7-targets.txt

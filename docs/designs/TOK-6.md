@@ -48,7 +48,7 @@ Out (deferred):
 
 ## Architecture
 
-```
+```text
 src/
 ├── server.ts        # createApp() — Hono app, no side-effects on import
 └── index.ts         # process.env.PORT, serve(createApp())

@@ -2,7 +2,7 @@
 
 Append-only. Latest entry on top. Each entry follows:
 
-```
+```text
 ## YYYY-MM-DD HH:MM — <step-id> — <persona>
 - Status: started|complete|blocked
 - Output(s): docs/<file>.md
