@@ -1,0 +1,3 @@
+# Targeted tests for TOK-6 / S0.1 — Repo bootstrap & dev environment
+# Format: <tier>: <path> (one per line; see scripts/run-targeted-tests.sh)
+unit: tests/unit/server.test.ts

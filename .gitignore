@@ -1,3 +1,21 @@
 .mempalace/
 .mcp-memory/
 .cursor/rules/30-personal.mdc
+# Runtime token used by verify-completion-promise hook; not a source artifact.
+.cursor/scratchpad.md
+
+# Node / TypeScript build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local env (use env.example as the canonical surface)
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+
