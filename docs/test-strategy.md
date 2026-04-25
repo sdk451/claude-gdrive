@@ -28,11 +28,28 @@ There is no UI surface in v1, so Playwright / visual regression is **out of scop
 
 Mirrors `docs/environments.md` CI/CD section:
 
-- **PR validation** (`pr-validation.yml`): lint + typecheck + unit + targeted + markdown lint. Required for merge.
-- **Main CI** (`ci.yml`): full unit + integration + container build + staging deploy + staging smoke.
-- **Release** (`release.yml`): prod promotion + prod smoke.
+- **PR validation** (`pr-validation.yml`): lint + typecheck + unit (**JSON + JUnit + Markdown summary**) + story **targeted** suite (resolved from branch name) + markdown lint. Uploads artifact `test-results-pr-<#>-<STORY>`. Required for merge.
+- **Main regression** (`ci-main.yml`): on every **push to `main`**, full default Vitest tree plus **all** `docs/tests/TOK-*-targets.txt` files (`scripts/ci/run-regression-story-targets.sh`). Artifact `regression-main-<sha>` includes `MAIN_REGRESSION_SUMMARY.md`.
+- **Main CI / deploy** (`ci.yml`, future): full integration + container build + staging deploy + staging smoke (see `docs/environments.md`).
+- **Release** (`release.yml`): **`workflow_dispatch` placeholder** today — intended prod promotion + smoke; full “promote → regression → fix PR if red” train is described in [Testing artifacts & regression](testing-artifacts-and-regression.md#release-train-vision).
 - **Nightly** (`nightly.yml`, optional): live-integration canary against a test Workspace; on failure it opens a Linear issue.
 - **Security** (`security.yml`): dependency / secret / container scans on PR and weekly.
+
+### Where to read test results (human-readable)
+
+1. Open the **GitHub Actions** run for the PR or `main` push.
+2. Download the **artifact** (PR: `test-results-pr-…`; main: `regression-main-…`).
+3. Open **`STORY_TEST_SUMMARY.md`** or **`MAIN_REGRESSION_SUMMARY.md`** — tables list each Vitest case; logs include the targeted runner output and (on `main`) aggregated story-target logs.
+
+Machine-readable: **`vitest-unit.json`** (same artifact) for dashboards or merge gates.
+
+Full narrative: [`docs/testing-artifacts-and-regression.md`](testing-artifacts-and-regression.md).
+
+### Regression vs story-targeted tests
+
+- **Default regression:** every merged file matching `tests/**/*.test.ts` runs on each PR (`pnpm test` / `test:unit:ci`) and on `main` (`ci-main.yml`).
+- **Story contract:** `docs/tests/<STORY>-targets.txt` lists the Vitest paths the **implementer loop** must green before `STORY_COMPLETE`. Place new tests under `tests/unit/`, `tests/api/`, or `tests/e2e/` per tier (see `tests/README.md`).
+- **Promotion:** merging to `main` is the promotion event — no second copy step. Keep the story targets file pointing at real paths so `run-regression-story-targets.sh` continues to exercise them on every main push.
 
 ## Quality gates
 

@@ -1,0 +1,84 @@
+# Full regression on every push to main: default Vitest tree + every
+# docs/tests/TOK-*-targets.txt slice. Uploads human-readable summary artifact.
+
+name: ci-main
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-main-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: full regression (unit + story target files)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        node: ["22.x"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (ESLint)
+        run: pnpm lint
+
+      - name: Lint (Markdown)
+        run: pnpm lint:md
+
+      - name: Default Vitest suite (all tests/**/*.test.ts) + reports
+        run: |
+          mkdir -p reports
+          pnpm run test:unit:ci
+
+      - name: Story targets regression (all TOK-*-targets.txt)
+        shell: bash
+        run: bash scripts/ci/run-regression-story-targets.sh
+
+      - name: Write regression summary
+        if: always()
+        shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: node scripts/ci/write-test-result-summary.mjs
+
+      - name: Upload regression artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-main-${{ github.sha }}
+          path: |
+            reports/MAIN_REGRESSION_SUMMARY.md
+            reports/vitest-unit.json
+            reports/vitest-unit-junit.xml
+            reports/regression-story-targets.log
+            reports/targeted-tests.log
+          if-no-files-found: warn

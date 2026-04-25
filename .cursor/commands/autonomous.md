@@ -90,14 +90,24 @@ If any fail, return to step 5 — do not push a red branch.
    once required checks pass. Do not poll; the loop's job here is done.
 4. In `branch-only` mode: skip the merge; leave the PR open for a human.
 
-### 8. Advance Linear status
-- After step 7 succeeds, set the issue to `In Review`:
-  `plugin-linear-linear.save_issue {id: "$STORY_ID", state: "In Review"}`.
-- If `gh pr merge --auto --squash` reported the PR is already merged
-  (zero required checks, fast-forward, etc.), skip `In Review` and set
-  `state: "Done"` directly.
-- Drop a final comment on the issue summarising what shipped: closing hash,
-  PR url, verification snapshot.
+### 8. Advance Linear status (agent-only — not GitHub Actions)
+Linear does **not** update itself from CI. You **must** call MCP tools or the
+issue stays stale (common bug for “S0.2 never moved”).
+
+**Checklist (do not skip):**
+1. **Branch before marker** — `git checkout -b "$STORY_ID/..."` **then**
+   `autonomous-start.sh` so `linear-sync-prompt.sh` matches the branch id.
+2. **Resolve real state names** — once per session if unsure:
+   `plugin-linear-linear.list_issue_statuses { team: "Tokenomik" }`. Use the
+   exact string for `save_issue` `state` (typo = silent failure or API error).
+3. After step 7 succeeds, set the issue to **`In Review`** unless the PR is
+   already merged, then set **`Done`**:
+   - `plugin-linear-linear.save_issue { id: "$STORY_ID", state: "In Review" }`
+   - or `{ state: "Done" }` when merge already landed.
+4. Drop a final **`save_comment`**: closing hash, PR URL, link to the GitHub
+   Actions artifact (`test-results-pr-…`) so humans see **which tests ran**.
+
+See `docs/testing-artifacts-and-regression.md` § Linear status.
 
 ### 9. Clean up
 - `bash scripts/autonomous-stop.sh` — clears the marker so the next session

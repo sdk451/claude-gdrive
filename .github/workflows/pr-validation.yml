@@ -1,7 +1,8 @@
 name: pr-validation
 
-# PR validation: install, typecheck, eslint, unit tests, markdown lint,
-# targeted-test runner (TOK-7 / S0.2). Concurrency cancels superseded runs.
+# PR validation: install, typecheck, eslint, unit tests (+ JSON/JUnit reports),
+# markdown lint, targeted story tests (from branch name), human-readable summary
+# artifact tied to PR + story id.
 
 on:
   pull_request:
@@ -27,6 +28,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve story id from head branch
+        id: story
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          ref="${HEAD_REF:-unknown}"
+          if [[ "$ref" =~ ([A-Z]+-[0-9]+) ]]; then
+            sid="${BASH_REMATCH[1]}"
+            echo "story_id=${sid}" >> "$GITHUB_OUTPUT"
+            echo "targets_file=docs/tests/${sid}-targets.txt" >> "$GITHUB_OUTPUT"
+          else
+            echo "story_id=unknown" >> "$GITHUB_OUTPUT"
+            echo "targets_file=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "head_ref=${ref}" >> "$GITHUB_OUTPUT"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -50,8 +68,46 @@ jobs:
       - name: Lint (Markdown)
         run: pnpm lint:md
 
-      - name: Test (unit)
-        run: pnpm test
+      - name: Test (unit) with JSON + JUnit reports
+        run: |
+          mkdir -p reports
+          pnpm run test:unit:ci
 
-      - name: Targeted tests (TOK-7)
-        run: bash scripts/run-targeted-tests.sh docs/tests/TOK-7-targets.txt
+      - name: Targeted tests (story targets file)
+        shell: bash
+        run: |
+          mkdir -p reports
+          T="${{ steps.story.outputs.targets_file }}"
+          if [[ -n "$T" && -f "$T" ]]; then
+            echo "Running targeted suite: $T"
+            bash scripts/run-targeted-tests.sh "$T" 2>&1 | tee reports/targeted-tests.log
+          else
+            echo "No targets file for branch (story_id=${{ steps.story.outputs.story_id }}). Skipping targeted step."
+            echo "(No targeted run — branch name has no TOK-123-style id or file missing.)" > reports/targeted-tests.log
+          fi
+
+      - name: Write human-readable test summary
+        if: always()
+        shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.head_ref }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/ci/write-test-result-summary.mjs
+
+      - name: Upload test reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-pr-${{ github.event.pull_request.number }}-${{ steps.story.outputs.story_id }}
+          path: |
+            reports/STORY_TEST_SUMMARY.md
+            reports/vitest-unit.json
+            reports/vitest-unit-junit.xml
+            reports/targeted-tests.log
+          if-no-files-found: warn

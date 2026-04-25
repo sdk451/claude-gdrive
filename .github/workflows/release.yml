@@ -1,0 +1,39 @@
+# Release train (skeleton). Full behaviour is specified in
+# docs/test-strategy.md § Release train and autonomous-swe-kit doc
+# docs/autonomous-swe-kit/docs/testing-artifacts-and-regression.md
+#
+# Planned flow (not implemented here — needs deploy credentials + bot token):
+#   1. Promote main build to staging (image digest).
+#   2. Run full regression against staging (or reuse ci-main artifact pattern).
+#   3. On failure: open a fix PR against main (automation/bot), re-run until green.
+#   4. On success: tag release, promote to prod per environments.md.
+#
+# Use workflow_dispatch until deploy + bot wiring exists.
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: Optional note (ignored — placeholder workflow)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    name: release placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Explain next steps
+        run: |
+          echo "Release automation is not wired yet."
+          echo "See docs/test-strategy.md (Release train) and"
+          echo "docs/autonomous-swe-kit/docs/testing-artifacts-and-regression.md"
+          echo "for the intended promotion + regression + fix-PR loop."

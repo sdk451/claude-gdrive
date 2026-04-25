@@ -66,6 +66,28 @@ matching story id on the current branch.
 - Anything that would push to `main`. The loop only ever pushes to a story
   branch and merges via PR.
 
+## Linear status did not update (troubleshooting)
+GitHub Actions **never** calls Linear — only the **agent** does, via MCP
+`save_issue` / `save_comment`. If S0.2 / TOK-7 (or any story) stayed in the wrong
+state:
+
+1. **Wrong `state` string** — Linear team states are labels, not guesses. Run
+   `plugin-linear-linear.list_issue_statuses { team: "Tokenomik" }` and copy the
+   exact name (e.g. `In Progress`, `Done`, `In Review`).
+2. **Marker before branch** — if `autonomous-start.sh` ran while still on a
+   branch whose id **does not** match the story (e.g. `TOK-6/...` with marker
+   `TOK-7`), `linear-sync-prompt.sh` stays silent and easy to skip the Linear
+   close-out. **Always** `git checkout -b <STORY>/...` **then**
+   `autonomous-start.sh <STORY>`.
+3. **Session ended early** — `save_issue` is manual; if the agent stopped after
+   `gh pr merge` without calling MCP, Linear never updates. The stop-hook nudges
+   for **unsynced commits**, not for missing status transitions.
+4. **Confirm in UI** — after `save_issue`, open the issue in Linear; if the API
+   returned OK but the UI disagrees, retry with the canonical state id from
+   `list_issue_statuses`.
+
+See `docs/testing-artifacts-and-regression.md`.
+
 ## Failure handling
 - **Tests fail at iteration cap.** Implementer emits `<promise>BLOCKED</promise>`,
   pushes, opens a draft PR with the `needs-human` label, leaves the marker in

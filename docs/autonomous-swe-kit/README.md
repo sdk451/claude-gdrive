@@ -12,6 +12,7 @@ A complete blueprint and starter files for running an autonomous software engine
 4. **`COST-ANALYSIS.md`** — full review of all implementation options with monthly cost estimates for light/medium/heavy usage, and how each runs the autonomous implementation phase. Updated with Pure-Cursor split (local-only vs cloud-on) and Microsoft Copilot coverage (GitHub + M365). **Read this before choosing a path.**
 5. **`IMPLEMENTATION-GUIDE-UNIFIED.md`** — step-by-step setup covering **five variants** (Pure Cursor local-only, Pure Cursor cloud, Claude Code only, Cline + Ollama, OpenCode + GLM) with **Extended TDD flow** where the Test Architect selects multi-tier test targets and the Implementer drives all of them to green. Also documents the GitHub Copilot variant's Coding-Agent adaptation.
 6. `IMPLEMENTATION-GUIDE.md` — original two-path guide (Hybrid + Pure Cursor). Retained for readers who just want that subset.
+7. **[Testing artifacts & regression](../testing-artifacts-and-regression.md)** — where CI stores **human-readable** test summaries per PR / `main`, how tests **promote** into regression, **Linear status pitfalls**, and the **release train** vision.
 
 ### Agent personas (drop into `.claude/agents/` and/or `.cursor/commands/`)
 

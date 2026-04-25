@@ -42,12 +42,13 @@ Source: [`docs/tech-stack.md`](docs/tech-stack.md).
 
 ## Test discipline
 
-Source: [`docs/test-strategy.md`](docs/test-strategy.md).
+Source: [`docs/test-strategy.md`](docs/test-strategy.md) and [`docs/testing-artifacts-and-regression.md`](docs/testing-artifacts-and-regression.md).
 
 - Every story carries `docs/tests/<story-id>-targets.txt`.
 - `scripts/run-targeted-tests.sh <targets-file>` runs that subset and exits non-zero on any failure.
 - The `verify-completion-promise` hook is the only path to `STORY_COMPLETE`. Do not fake it.
 - Mandatory regression tests live forever: `tools.list.returns_full_set_after_oauth`, `tools.list.never_empty_post_init`, `oauth.refresh.silent_success`.
+- **CI artifacts:** PR runs upload `STORY_TEST_SUMMARY.md` (+ Vitest JSON/JUnit); every push to `main` uploads `MAIN_REGRESSION_SUMMARY.md` via `ci-main.yml`. Download from the Actions run’s **Artifacts**. Layout: [`tests/README.md`](tests/README.md).
 
 ## Workflow & loop
 

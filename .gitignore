@@ -13,6 +13,9 @@
 # autonomous.md and rule 12-autonomous-mode.mdc.
 .cursor/autonomous-mode.txt
 
+# CI / local Vitest JSON + JUnit + human-readable summaries (generated; never commit)
+reports/
+
 # Node / TypeScript build output
 node_modules/
 dist/
