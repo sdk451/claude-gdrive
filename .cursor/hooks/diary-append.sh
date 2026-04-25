@@ -24,15 +24,24 @@ HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // ""')
 is_significant_path() {
   local p="$1"
   [ -z "$p" ] && return 1
-  case "$p" in
-    docs/brief.md|docs/prd.md|docs/architecture.md|docs/tech-stack.md|\
-docs/constitution.md|docs/ux.md|docs/ux-principles.md|docs/backlog.md|\
-docs/design-system.md|docs/environments.md|docs/observability.md|\
-docs/test-strategy.md) return 0 ;;
-    docs/designs/*) return 0 ;;
-    docs/_seed/*) return 0 ;;
+  # Normalize backslashes -> forward slashes so we can match against the
+  # repo-relative `docs/...` suffix regardless of how the caller (Cursor on
+  # Windows, Cursor on macOS, CLI, etc.) reports the path.
+  local n="${p//\\//}"
+  case "$n" in
+    *docs/brief.md|*docs/prd.md|*docs/architecture.md|*docs/tech-stack.md|\
+*docs/constitution.md|*docs/ux.md|*docs/ux-principles.md|*docs/backlog.md|\
+*docs/design-system.md|*docs/environments.md|*docs/observability.md|\
+*docs/test-strategy.md) ;;
+    *docs/designs/*) ;;
+    *docs/_seed/*) ;;
     *) return 1 ;;
   esac
+  # Exclude diary files just in case they ever land under a matched glob.
+  case "$n" in
+    *docs/diary/*) return 1 ;;
+  esac
+  return 0
 }
 
 append_entry() {
