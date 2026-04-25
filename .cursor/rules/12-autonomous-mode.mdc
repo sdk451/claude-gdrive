@@ -1,0 +1,84 @@
+---
+description: Autonomous implementer loop — flag, gates, and lifecycle
+alwaysApply: true
+---
+# Autonomous mode
+The implementer can run a story end-to-end without human review when the
+caller opts in by setting the autonomous marker. CI is the quality gate; the
+loop only commits when the targeted suite is green.
+
+## Marker file
+`.cursor/autonomous-mode.txt` (gitignored) — three short lines:
+
+```
+<STORY_ID>      e.g. TOK-7
+<mode>          full | branch-only | dry-run   (default: full)
+<iso-timestamp> when the loop started
+```
+
+Set with `bash scripts/autonomous-start.sh <STORY_ID> [mode]`, cleared with
+`bash scripts/autonomous-stop.sh`. The marker only takes effect for the
+matching story id on the current branch.
+
+## What "autonomous mode" enables
+1. **Linear comments per commit** — see `11-linear-sync.mdc`. The
+   linear-sync-prompt stop-hook is silent unless the marker is set and its
+   STORY_ID matches the branch.
+2. **No human review on the PR** — the implementer pushes, opens (or
+   updates) a PR, and enables auto-merge with `gh pr merge --auto --squash`
+   on the closing commit. CI must be green for the merge to land.
+3. **Status transitions on Linear** — the implementer moves the issue to
+   `In Progress` at start, `In Review` on the closing commit, `Done` once the
+   PR has merged. Use `plugin-linear-linear.save_issue` with a `state` name
+   that exists for the team (verify via `list_issue_statuses` once per loop
+   if unsure).
+
+## Modes
+- `full` (default) — commit + push + PR + auto-merge + Linear comments +
+  status transitions.
+- `branch-only` — commit + push + Linear comments + status transitions, no
+  PR. Useful when a human will assemble the PR manually.
+- `dry-run` — commit + Linear comments + status transitions only. No push,
+  no PR. Used for rehearsing the loop without touching the remote.
+
+## Lifecycle (full mode)
+1. **Start.** `bash scripts/autonomous-start.sh <STORY_ID>`. Implementer also
+   moves the Linear issue to `In Progress` and confirms the branch matches
+   `<STORY_ID>/...`.
+2. **Loop.** Run the Extended TDD Ralph loop in `21-implementer.mdc` /
+   `.cursor/commands/implementer.md`. Commit per substantive iteration. The
+   linear-sync stop-hook nudges to comment + ledger each unsynced hash.
+3. **Close.** On `STORY_COMPLETE` + targeted suite all green:
+   - Final commit, comment, ledger entry.
+   - `git push -u origin HEAD`.
+   - `gh pr create --fill --base main` (or `gh pr edit` if it exists).
+   - `gh pr merge --auto --squash`.
+   - `plugin-linear-linear.save_issue {id: "<STORY_ID>", state: "In Review"}`.
+   - `bash scripts/autonomous-stop.sh`.
+4. **Post-merge (optional).** When CI lands the merge, a follow-up turn can
+   move the issue to `Done` and pick up the next story. Or stop here and let
+   a human pick the next one.
+
+## When NOT to use autonomous mode
+- Foundation-doc work (constitution, architecture, tech-stack) — these
+  require human judgement; commit manually.
+- Spike / exploratory work without a Linear story.
+- Anything that would push to `main`. The loop only ever pushes to a story
+  branch and merges via PR.
+
+## Failure handling
+- **Tests fail at iteration cap.** Implementer emits `<promise>BLOCKED</promise>`,
+  pushes, opens a draft PR with the `needs-human` label, leaves the marker in
+  place so a follow-up turn can resume, and stops.
+- **CI fails on the auto-merge PR.** The auto-merge is suspended by GitHub.
+  The next stop-hook nudge surfaces the unmerged commit; the implementer
+  reads CI output, makes a fix commit, and the loop continues.
+- **Linear MCP unavailable.** Commit + push + PR proceed; the comment /
+  status-transition steps surface as pending. The agent retries on the next
+  turn — the marker stays set so the linear-sync hook keeps nudging.
+
+## Hard rules
+- Never set the marker for a STORY_ID that doesn't exist in Linear.
+- Never push directly to `main`, even in autonomous mode.
+- Always clear the marker when the loop ends — leftover markers mis-route
+  the linear-sync nudges on the next session.

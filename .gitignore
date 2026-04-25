@@ -8,6 +8,10 @@
 # Per-clone Linear sync ledger (linear-sync-prompt.sh). Tracks short hashes
 # already commented on the matching Linear issue.
 .cursor/linear-synced.txt
+# Autonomous-mode marker. Presence means the current session is running the
+# implementer's autonomous loop on the listed story. See .cursor/commands/
+# autonomous.md and rule 12-autonomous-mode.mdc.
+.cursor/autonomous-mode.txt
 
 # Node / TypeScript build output
 node_modules/

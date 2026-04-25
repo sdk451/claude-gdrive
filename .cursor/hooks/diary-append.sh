@@ -69,12 +69,17 @@ case "$HOOK_EVENT" in
       if [ -n "$HAS_CONTENT" ]; then
         mkdir -p "$DIR"
         [ ! -f "$DIARY_FILE" ] && printf '# Diary — %s\n\n' "$TODAY" > "$DIARY_FILE"
+        # Hook owns the H2 section level. Heading is the timestamp itself —
+        # readers can scan a diary day and see the time of every entry as the
+        # first text on each H2 line. Metadata (persona / branch / story) goes
+        # on a subdued italic line directly below so the heading stays clean.
+        # Agent-authored content is demoted by one heading level (sed adds a
+        # leading `#` to any line starting with 1..5 `#`s) to keep the H2 unique
+        # and let H1/H2/H3 inside the summary nest correctly under the date.
         {
-          printf '\n## %s | %s | session-summary | branch=%s story=%s\n\n' \
+          printf '\n## %s\n\n_session-summary · persona %s · branch %s · story %s_\n\n' \
             "$NOW" "$PERSONA" "$BRANCH" "${STORY:-none}"
-          # Strip the BOM on the way in so the diary stays clean.
-          sed $'1s/^\xef\xbb\xbf//' "$SUMMARY"
-          # Guarantee a trailing newline so subsequent entries don't run together.
+          sed -E -e $'1s/^\xef\xbb\xbf//' -e 's/^(#{1,5}) /\1# /' "$SUMMARY"
           printf '\n'
         } >> "$DIARY_FILE"
         : > "$SUMMARY"

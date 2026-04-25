@@ -89,6 +89,33 @@ ON MAX ITERATIONS:
   Refs: AUTH-142
   ```
 
+## Autonomous-mode behaviour
+You are running inside the autonomous loop iff `.cursor/autonomous-mode.txt`
+exists and its first `[A-Z]+-[0-9]+` token equals the branch's story id. When
+true, three additional behaviours kick in (see `12-autonomous-mode.mdc`):
+
+1. **Per-commit Linear sync.** After each commit, post a `save_comment` and
+   append the short hash to `.cursor/linear-synced.txt`. The
+   `linear-sync-prompt.sh` stop-hook will nudge you with the exact list if
+   you forget.
+2. **Final-commit ship-out.** On `STORY_COMPLETE` + targeted suite green,
+   after the closing comment + ledger entry:
+   - `git push -u origin HEAD`.
+   - `gh pr create --base main --fill` (or `gh pr edit` if the PR exists).
+   - `gh pr merge --auto --squash` — CI is the review gate; do not wait for
+     a human reviewer in autonomous mode.
+   - `plugin-linear-linear.save_issue {id, state: "In Review"}` (or `"Done"`
+     if the merge has already landed). Verify state names with
+     `list_issue_statuses {team: "Tokenomik"}` if unsure.
+   - `bash scripts/autonomous-stop.sh` — clears the marker.
+3. **Status transition on entry.** If the issue is still in `Todo` /
+   `Backlog` when you start, move it to `In Progress` before the first
+   commit (`save_issue {id, state: "In Progress"}`).
+
+Outside autonomous mode (no marker, or marker for a different story), do
+**not** post Linear comments or transition issue state — that's reserved for
+the autonomous loop. Manual commits are fine, they just don't sync.
+
 ## When you get stuck
 
 Before giving up, try in this order:
