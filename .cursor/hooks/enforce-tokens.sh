@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
+# Design-token gate: deny hex / rgb() / px literals in component code, allow
+# them inside tokens/, generated/, theme files, dotfiles, tailwind config, and
+# tests. Path matching normalises Windows backslashes -> forward slashes so
+# absolute paths from Cursor on Windows (e.g. c:\repos\...\components\X.tsx)
+# match the same globs that work on POSIX.
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // ""')
 CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""')
-case "$FILE" in
+
+NORM="${FILE//\\//}"
+
+case "$NORM" in
   tokens/*|*/tokens/*|generated/*|*/generated/*|*/theme*|.*|tailwind.config*|*.test.*|*.spec.*) exit 0 ;;
 esac
-case "$FILE" in
+case "$NORM" in
   components/*|app/*|src/components/*|src/app/*|*/components/*|*/app/*) ;;
   *) exit 0 ;;
 esac
