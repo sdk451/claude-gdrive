@@ -48,7 +48,7 @@ Source: [`docs/test-strategy.md`](docs/test-strategy.md) and [`docs/testing-arti
 - `scripts/run-targeted-tests.sh <targets-file>` runs that subset and exits non-zero on any failure.
 - The `verify-completion-promise` hook is the only path to `STORY_COMPLETE`. Do not fake it.
 - Mandatory regression tests live forever: `tools.list.returns_full_set_after_oauth`, `tools.list.never_empty_post_init`, `oauth.refresh.silent_success`.
-- **CI artifacts:** PR runs upload `STORY_TEST_SUMMARY.md` (+ Vitest JSON/JUnit); every push to `main` uploads `MAIN_REGRESSION_SUMMARY.md` via `ci-main.yml`. Download from the Actions run’s **Artifacts**. Layout: [`tests/README.md`](tests/README.md).
+- **CI artifacts:** PR runs upload `STORY_TEST_SUMMARY.md` (+ Vitest JSON/JUnit); every push to `main` uploads `MAIN_REGRESSION_SUMMARY.md` via `ci.yml` and builds/pushes the container when GCP secrets exist. Download from the Actions run’s **Artifacts**. Layout: [`tests/README.md`](tests/README.md).
 
 ## Workflow & loop
 

@@ -32,9 +32,21 @@ Each **PR** workflow uploads an artifact named like `test-results-pr-<PR#>-<STOR
 - `STORY_TEST_SUMMARY.md` — human-readable table (PR, branch, resolved story id, each Vitest case, targeted runner log)
 - `vitest-unit.json` / `vitest-unit-junit.xml` — machine-readable outputs
 
-Each push to **`main`** runs [`.github/workflows/ci-main.yml`](.github/workflows/ci-main.yml) and uploads `regression-main-<sha>` with `MAIN_REGRESSION_SUMMARY.md` plus aggregated `regression-story-targets.log`.
+Each push to **`main`** runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml): regression job uploads `regression-main-<sha>` (`MAIN_REGRESSION_SUMMARY.md` + logs); the **container** job builds the production `Dockerfile` and, when the GCP repository secrets in the next section are set, pushes `:$GITHUB_SHA` to Artifact Registry.
 
 See [`docs/test-strategy.md`](docs/test-strategy.md) and [`docs/testing-artifacts-and-regression.md`](docs/testing-artifacts-and-regression.md).
+
+## CI — Artifact Registry push (optional)
+
+To satisfy **S0.3** push acceptance in a real GCP project, add these **repository secrets** (Workload Identity Federation — no JSON key in the repo):
+
+| Secret                           | Example / meaning                                                                                                                              |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full WIF provider resource name (`projects/…/locations/global/workloadIdentityPools/…/providers/…`).                                           |
+| `GCP_SERVICE_ACCOUNT`            | Deployer service account email (`…@….iam.gserviceaccount.com`).                                                                                |
+| `GCP_ARTIFACT_REGISTRY`          | Image repository **without tag**: `REGION-docker.pkg.dev/PROJECT/gdrive-mcp/IMAGE` (same project as `docs/environments.md` repo `gdrive-mcp`). |
+
+The `ci.yml` **container** job always runs `docker build`; push steps run only when all three secrets are non-empty.
 
 ## License
 

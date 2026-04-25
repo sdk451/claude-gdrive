@@ -28,13 +28,13 @@ The **default canonical deployment target is Cloud Run.** Cloudflare Workers and
 
 CI uses GitHub Actions; structure mirrors a tiered model:
 
-| Workflow             | Trigger                       | Jobs                                                                                                            | Pass criterion                     |
-| -------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `pr-validation.yml`  | `pull_request`                | install, lint, typecheck, unit, targeted (per `docs/tests/<id>-targets.txt`), markdown lint                     | all jobs green; required for merge |
-| `ci.yml`             | `push` to `main`              | full test suite (unit + integration), build container, push to Artifact Registry, deploy to staging, smoke test | green deploy to staging            |
-| `release.yml`        | tag `v*.*.*`                  | promote staging image to prod via Cloud Run revision, run prod smoke, create GitHub Release                     | green prod smoke                   |
-| `security.yml`       | `pull_request`, weekly `cron` | dependency scan (Dependabot + `npm audit --omit=dev`), secret scan (gitleaks), container scan (trivy)           | no high/critical findings unwaived |
-| `connector-test.yml` | manual `workflow_dispatch`    | spin ngrok tunnel + run MCP Inspector against staging or PR-preview                                             | passing tools/list and OAuth       |
+| Workflow             | Trigger                       | Jobs                                                                                                                                                            | Pass criterion                          |
+| -------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `pr-validation.yml`  | `pull_request`                | install, lint, typecheck, unit, targeted (per `docs/tests/<id>-targets.txt`), markdown lint                                                                     | all jobs green; required for merge      |
+| `ci.yml`             | `push` to `main`              | full regression (tests + `TOK-*` targets), summary artifact, **Docker build**, optional **Artifact Registry push** (WIF secrets); deploy to staging is **S0.5** | regression green; image built every run |
+| `release.yml`        | tag `v*.*.*`                  | promote staging image to prod via Cloud Run revision, run prod smoke, create GitHub Release                                                                     | green prod smoke                        |
+| `security.yml`       | `pull_request`, weekly `cron` | dependency scan (Dependabot + `npm audit --omit=dev`), secret scan (gitleaks), container scan (trivy)                                                           | no high/critical findings unwaived      |
+| `connector-test.yml` | manual `workflow_dispatch`    | spin ngrok tunnel + run MCP Inspector against staging or PR-preview                                                                                             | passing tools/list and OAuth            |
 
 CI runners use a least-privilege Workload Identity Federation principal. Deploy credentials never live in repo secrets.
 

@@ -4,7 +4,7 @@
 #
 # Planned flow (not implemented here — needs deploy credentials + bot token):
 #   1. Promote main build to staging (image digest).
-#   2. Run full regression against staging (or reuse ci-main artifact pattern).
+#   2. Run full regression against staging (or reuse ci.yml regression artifact pattern).
 #   3. On failure: open a fix PR against main (automation/bot), re-run until green.
 #   4. On success: tag release, promote to prod per environments.md.
 #

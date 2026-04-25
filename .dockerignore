@@ -1,0 +1,21 @@
+# Git / editor
+.git
+.github
+.cursor
+**/.DS_Store
+
+# Dependencies & build (reinstalled / rebuilt in image)
+node_modules
+dist
+coverage
+reports
+*.tsbuildinfo
+
+# Docs & tests not needed at runtime
+docs
+tests
+*.md
+
+# Dev / local
+.env
+.env.*

@@ -29,7 +29,7 @@ There is no UI surface in v1, so Playwright / visual regression is **out of scop
 Mirrors `docs/environments.md` CI/CD section:
 
 - **PR validation** (`pr-validation.yml`): lint + typecheck + unit (**JSON + JUnit + Markdown summary**) + story **targeted** suite (resolved from branch name) + markdown lint. Uploads artifact `test-results-pr-<#>-<STORY>`. Required for merge.
-- **Main regression** (`ci-main.yml`): on every **push to `main`**, full default Vitest tree plus **all** `docs/tests/TOK-*-targets.txt` files (`scripts/ci/run-regression-story-targets.sh`). Artifact `regression-main-<sha>` includes `MAIN_REGRESSION_SUMMARY.md`.
+- **Main CI** (`ci.yml`): on every **push to `main`**, full default Vitest tree plus **all** `docs/tests/TOK-*-targets.txt` files (`scripts/ci/run-regression-story-targets.sh`), then **Docker build** (and **Artifact Registry push** when `GCP_*` secrets are set). Artifact `regression-main-<sha>` includes `MAIN_REGRESSION_SUMMARY.md`.
 - **Main CI / deploy** (`ci.yml`, future): full integration + container build + staging deploy + staging smoke (see `docs/environments.md`).
 - **Release** (`release.yml`): **`workflow_dispatch` placeholder** today — intended prod promotion + smoke; full “promote → regression → fix PR if red” train is described in [Testing artifacts & regression](testing-artifacts-and-regression.md#release-train-vision).
 - **Nightly** (`nightly.yml`, optional): live-integration canary against a test Workspace; on failure it opens a Linear issue.
@@ -47,7 +47,7 @@ Full narrative: [`docs/testing-artifacts-and-regression.md`](testing-artifacts-a
 
 ### Regression vs story-targeted tests
 
-- **Default regression:** every merged file matching `tests/**/*.test.ts` runs on each PR (`pnpm test` / `test:unit:ci`) and on `main` (`ci-main.yml`).
+- **Default regression:** every merged file matching `tests/**/*.test.ts` runs on each PR (`pnpm test` / `test:unit:ci`) and on `main` (`ci.yml` regression job).
 - **Story contract:** `docs/tests/<STORY>-targets.txt` lists the Vitest paths the **implementer loop** must green before `STORY_COMPLETE`. Place new tests under `tests/unit/`, `tests/api/`, or `tests/e2e/` per tier (see `tests/README.md`).
 - **Promotion:** merging to `main` is the promotion event — no second copy step. Keep the story targets file pointing at real paths so `run-regression-story-targets.sh` continues to exercise them on every main push.
 

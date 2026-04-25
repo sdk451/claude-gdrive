@@ -24,8 +24,8 @@ describe("pr-validation workflow", () => {
   });
 });
 
-describe("ci-main workflow", () => {
-  const workflowPath = join(repoRoot, ".github/workflows/ci-main.yml");
+describe("ci workflow (main + container)", () => {
+  const workflowPath = join(repoRoot, ".github/workflows/ci.yml");
   const yml = readFileSync(workflowPath, "utf8");
 
   it("runs on push to main with regression story targets + artifact", () => {
@@ -34,5 +34,15 @@ describe("ci-main workflow", () => {
     expect(yml).toContain("run-regression-story-targets.sh");
     expect(yml).toContain("write-test-result-summary.mjs");
     expect(yml).toContain("MAIN_REGRESSION_SUMMARY.md");
+  });
+
+  it("builds container after regression and supports WIF push", () => {
+    expect(yml).toMatch(/^\s*container:/m);
+    expect(yml).toContain("needs: regression");
+    expect(yml).toContain("docker/setup-buildx-action@v3");
+    expect(yml).toContain("docker build");
+    expect(yml).toContain("google-github-actions/auth@v2");
+    expect(yml).toContain("GCP_WORKLOAD_IDENTITY_PROVIDER");
+    expect(yml).toContain("GCP_ARTIFACT_REGISTRY");
   });
 });
