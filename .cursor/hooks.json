@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/block-dangerous.sh",
+        "matcher": "Shell|Bash"
+      },
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/enforce-plan-mode.sh",
+        "matcher": "Write|Edit"
+      },
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/enforce-tokens.sh",
+        "matcher": "Write|Edit"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/vibecop-lint.sh",
+        "matcher": "Write|Edit"
+      },
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh",
+        "matcher": "Write|Edit|Shell|Bash"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/verify-completion-promise.sh"
+      },
+      {
+        "command": "node .cursor/hooks/run-hook.cjs .cursor/hooks/diary-append.sh"
+      }
+    ]
+  }
+}
