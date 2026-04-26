@@ -12,7 +12,7 @@ describe("security baseline", () => {
     const yml = readFileSync(workflowPath, "utf8");
 
     expect(yml).toMatch(/^\s*on:\s*$/m);
-    expect(yml).toMatch(/pull_request:/);
+    expect(yml).toMatch(/pull_request(_target)?:/);
     expect(yml).toMatch(/schedule:/);
     expect(yml).toMatch(/cron:/);
   });
