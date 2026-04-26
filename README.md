@@ -38,6 +38,10 @@ After deploy, **`release.yml`** also exercises **`/__smoke/mcp-tools-list`** aga
 - **Dashboard:** import **`infra/observability/latency-dashboard.json`** into Cloud Monitoring (steps in **`infra/observability/README.md`**).
 - **Staging load gate:** with the service reachable, run `node scripts/synthetic-mcp-latency.mjs` (defaults: 100 RPS for 30 s, `LOAD_TEST_BASE_URL` override). Exit code **1** means client-side **p95 > 3 s** — investigate before promoting.
 
+### Indirect prompt injection (S5.3)
+
+Drive content can carry **indirect prompt-injection** risk. Read **[`docs/security/indirect-prompt-injection.md`](docs/security/indirect-prompt-injection.md)** for the threat model, how **`destructiveHint` / `readOnlyHint`** are used on MCP tools, and operator practices (see also **`docs/prd.md`** §8).
+
 ### 4. Plugin bundle for Cowork (P-05)
 
 The expected **file-only** layout (`.claude-plugin/plugin.json`, **`.mcp.json`**, `skills/`, optional `commands/`) is documented under **Expected plugin bundle layout** in [`docs/architecture.md`](docs/architecture.md).

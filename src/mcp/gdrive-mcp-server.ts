@@ -320,6 +320,7 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
       title: "Create Drive file or folder",
       description:
         "Create a Google Drive file via `files.create`: folders (`application/vnd.google-apps.folder`), empty Docs/Sheets/Slides (`application/vnd.google-apps.document` / `spreadsheet` / `presentation`), or a small binary file using `mediaBase64` + `mediaMimeType` (multipart upload; size limits apply).",
+      annotations: { destructiveHint: true },
       inputSchema: {
         name: z.string().min(1).describe("Display name for the new file or folder."),
         mimeType: z

@@ -1,0 +1,1 @@
+tests/contract/mcp-destructive-hints-regression.test.ts

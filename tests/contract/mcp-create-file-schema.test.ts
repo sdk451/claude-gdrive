@@ -54,12 +54,19 @@ describe("TOK-28 create_file inputSchema (contract)", () => {
     });
     expect(listRes.status).toBe(200);
     const body = (await listRes.json()) as {
-      result?: { tools?: Array<{ name?: string; inputSchema?: Record<string, unknown> }> };
+      result?: {
+        tools?: Array<{
+          name?: string;
+          inputSchema?: Record<string, unknown>;
+          annotations?: { destructiveHint?: boolean };
+        }>;
+      };
       error?: unknown;
     };
     expect(body.error).toBeUndefined();
     const tool = body.result?.tools?.find((t) => t.name === "create_file");
     expect(tool).toBeDefined();
+    expect(tool?.annotations?.destructiveHint).toBe(true);
     const schema = tool?.inputSchema;
     expect(schema?.type).toBe("object");
     const props = schema?.properties as Record<string, unknown> | undefined;
