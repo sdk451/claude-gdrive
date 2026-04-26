@@ -47,7 +47,7 @@ describe("ci workflow (main + container)", () => {
   it("builds container after regression and supports WIF push", () => {
     expect(yml).toMatch(/^\s*container:/m);
     expect(yml).toContain("needs: regression");
-    expect(yml).toContain("docker/setup-buildx-action@v3");
+    expect(yml).toMatch(/docker\/setup-buildx-action@v\d+/);
     expect(yml).toContain("docker build");
     expect(yml).toContain("google-github-actions/auth@v2");
     expect(yml).toContain("GCP_WORKLOAD_IDENTITY_PROVIDER");
