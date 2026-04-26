@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 
 import { parseBootEnv } from "./config/env.js";
+import { createLogger } from "./observability/logger.js";
 import { createApp } from "./server.js";
 
 const boot = parseBootEnv();
@@ -17,8 +18,8 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
 }
 
 const app = createApp();
+const logger = createLogger();
 
 serve({ fetch: app.fetch, port }, (info) => {
-  // Logging story (S0.6) replaces this stderr line with a structured pino logger.
-  process.stderr.write(`gdrive-cowork-connector listening on :${info.port}\n`);
+  logger.info({ port: info.port }, "gdrive-cowork-connector listening");
 });
