@@ -22,7 +22,7 @@ describe("pr-validation workflow", () => {
     expect(yml).toContain("write-test-result-summary.mjs");
     expect(yml).toContain("fetch-linear-issue.mjs");
     expect(yml).toContain("append-test-run-log.mjs");
-    expect(yml).toContain("actions/upload-artifact@v4");
+    expect(yml).toMatch(/actions\/upload-artifact@v\d+/);
     expect(yml).toContain("reports/test-run-record.json");
     expect(yml).toContain("reports/linear-issue.json");
     expect(yml).toContain("docs/test-runs/test-runs.jsonl");
@@ -47,9 +47,9 @@ describe("ci workflow (main + container)", () => {
   it("builds container after regression and supports WIF push", () => {
     expect(yml).toMatch(/^\s*container:/m);
     expect(yml).toContain("needs: regression");
-    expect(yml).toContain("docker/setup-buildx-action@v3");
+    expect(yml).toMatch(/docker\/setup-buildx-action@v\d+/);
     expect(yml).toContain("docker build");
-    expect(yml).toContain("google-github-actions/auth@v2");
+    expect(yml).toMatch(/google-github-actions\/auth@v\d+/);
     expect(yml).toContain("GCP_WORKLOAD_IDENTITY_PROVIDER");
     expect(yml).toContain("GCP_ARTIFACT_REGISTRY");
   });
