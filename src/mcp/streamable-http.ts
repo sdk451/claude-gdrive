@@ -7,9 +7,27 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 
 import { createFetchDriveFilesPort } from "../drive/fetch-drive-files.js";
 import type { DriveFilesPort } from "../drive/drive-files-port.js";
+import { hashSessionId } from "../observability/logger.js";
+import { inspectToolsListJsonRpcResponse } from "../observability/tools-list-empty.js";
 import { createGdriveMcpServer } from "./gdrive-mcp-server.js";
 
 const transports = new Map<string, WebStandardStreamableHTTPServerTransport>();
+
+async function observeMcpJsonResponse(sessionId: string | null, res: Response): Promise<Response> {
+  if (res.status !== 200) return res;
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) return res;
+  const text = await res.clone().text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return res;
+  }
+  const sessionIdHash = sessionId ? hashSessionId(sessionId) : null;
+  inspectToolsListJsonRpcResponse(parsed, sessionIdHash);
+  return res;
+}
 
 /** Until F-10 wires per-session Google tokens, default port rejects list calls without a token. */
 const defaultDriveFilesPort: DriveFilesPort = createFetchDriveFilesPort(() => undefined);
@@ -62,7 +80,8 @@ export function mountStreamableMcp(app: Hono, options?: MountStreamableMcpOption
           );
         }
         const transport = transports.get(sessionHeader)!;
-        return transport.handleRequest(raw, { parsedBody: body });
+        const res = await transport.handleRequest(raw, { parsedBody: body });
+        return observeMcpJsonResponse(sessionHeader, res);
       }
 
       if (body !== undefined && isInitializeRequest(body)) {
@@ -82,7 +101,8 @@ export function mountStreamableMcp(app: Hono, options?: MountStreamableMcpOption
         const driveFiles = options?.driveFiles ?? defaultDriveFilesPort;
         const server = createGdriveMcpServer({ driveFiles });
         await server.connect(transport);
-        return transport.handleRequest(raw, { parsedBody: body });
+        const res = await transport.handleRequest(raw, { parsedBody: body });
+        return observeMcpJsonResponse(null, res);
       }
 
       return c.json(

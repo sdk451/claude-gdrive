@@ -1,0 +1,2 @@
+tests/contract/mcp-tools-list-regression.test.ts
+tests/unit/tools-list-empty-metric.test.ts

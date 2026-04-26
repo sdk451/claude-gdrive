@@ -19,6 +19,20 @@ export type CreateGdriveMcpServerOptions = {
   driveFiles: DriveFilesPort;
 };
 
+/** Names returned by `tools/list` for this build — keep in sync with `registerTool` below. */
+export const GDRIVE_MCP_TOOL_NAMES = [
+  "search_files",
+  "list_folder",
+  "read_file_content",
+  "download_file_content",
+  "get_file_metadata",
+  "get_file_permissions",
+  "create_file",
+  "update_file",
+  "move_file",
+  "share_file",
+] as const;
+
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
  * Registers Drive tools (TOK-23 `search_files`, TOK-33 `list_folder`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`, TOK-32 `share_file`).
