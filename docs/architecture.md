@@ -201,7 +201,7 @@ GitHub repo → CI → Cloud Run
 - **No secrets in logs**: tokens and credentials must never appear in logs.
 - **Encrypt refresh tokens at rest**: AES-256-GCM (requirement NF-03).
 - **Network allowlisting** (optional): Anthropic egress for outbound requests is stable; see [IP addresses](https://platform.claude.com/docs/en/api/ip-addresses) (outbound IPv4 `160.79.104.0/21`).
-- **Indirect prompt injection**: treat Drive content as untrusted input; follow standard mitigations (Google’s Drive MCP guide explicitly calls out indirect prompt injection risk: [Configure the Drive MCP server](https://developers.google.com/workspace/drive/api/guides/configure-mcp-server)).
+- **Indirect prompt injection**: treat Drive content as untrusted input; follow standard mitigations (Google’s Drive MCP guide explicitly calls out indirect prompt injection risk: [Configure the Drive MCP server](https://developers.google.com/workspace/drive/api/guides/configure-mcp-server)). **Repo note:** [`docs/security/indirect-prompt-injection.md`](security/indirect-prompt-injection.md) (tool `annotations`, scopes, operator practices).
 
 ## Key design decisions
 

@@ -166,3 +166,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:28:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-41"},"context":{"branch":"TOK-41/s01-latency-budget-enforcement"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:28:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-41"},"context":{"branch":"TOK-41/s01-latency-budget-enforcement"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:28:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-41"},"context":{"branch":"TOK-41/s01-latency-budget-enforcement"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:00.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
