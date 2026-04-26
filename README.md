@@ -6,6 +6,8 @@ Self-hosted remote MCP server plus Cowork/Claude plugin for reliable Google Driv
 
 End-to-end path for **operators** who deploy this MCP server and distribute a **Cowork / Claude plugin bundle** (see **P-07** in [`docs/prd.md`](docs/prd.md)). Canonical infrastructure tables, WIF, Redis, and Epic 0 checklists live in **[`docs/environments.md`](docs/environments.md)** — this section ties them to concrete steps.
 
+**Operator guide = this README + [`docs/environments.md`](docs/environments.md).** On-call playbooks: **[`docs/runbooks/README.md`](docs/runbooks/README.md)**. MCP Inspector (CLI `tools/list` smoke): **[`scripts/mcp-inspector-validate.sh`](scripts/mcp-inspector-validate.sh)** (set `MCP_INSPECTOR_URL` if not using the default `http://127.0.0.1:8080/mcp`).
+
 ### 1. Google Cloud OAuth client
 
 1. In a **GCP project**, enable the **Google Drive API** (`APIs & Services → Library`).
@@ -32,6 +34,18 @@ curl -fsS "$ORIGIN/.well-known/oauth-authorization-server" | head
 ```
 
 After deploy, **`release.yml`** also exercises **`/__smoke/mcp-tools-list`** against prod when you cut a tag (see **Prod release** below).
+
+### Runbooks & MCP Inspector (S5.4)
+
+- **Alert runbooks** — indexed under [`docs/runbooks/README.md`](docs/runbooks/README.md); each alert in [`docs/observability.md`](docs/observability.md#alerting-initial-set) links its playbook from the table.
+- **Inspector validation** — with the server running (`pnpm dev` or staging URL), run:
+
+```bash
+bash scripts/mcp-inspector-validate.sh
+# or: MCP_INSPECTOR_URL=https://your-host/mcp bash scripts/mcp-inspector-validate.sh
+```
+
+Uses `npx @modelcontextprotocol/inspector` in **CLI** mode (`--transport http --method tools/list`). Same command is wired as **`pnpm inspector:validate`** (see [`package.json`](package.json)).
 
 ### Latency SLO (NF-02 / S5.2)
 
