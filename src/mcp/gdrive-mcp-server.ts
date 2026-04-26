@@ -9,6 +9,7 @@ import type {
   ListFilePermissionsParams,
   ListFilesParams,
   ReadFileContentParams,
+  UpdateFileParams,
 } from "../drive/drive-files-port.js";
 
 export type CreateGdriveMcpServerOptions = {
@@ -17,7 +18,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -319,6 +320,103 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive create failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_file",
+    {
+      title: "Update Drive file",
+      description:
+        "Update a Google Drive file via `files.update`: rename or change MIME with `name` / `mimeType`, or replace binary content using `mediaBase64` + `mediaMimeType` (multipart; same size limits as create). At least one of `name`, `mimeType`, or `mediaBase64` is required.",
+      annotations: { destructiveHint: true },
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` of the file to update."),
+        name: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("New display name (metadata-only update, or combined with media upload)."),
+        mimeType: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("New MIME type when updating metadata or multipart metadata part."),
+        mediaBase64: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Optional base64 file bytes to replace file content (multipart `files.update`).",
+          ),
+        mediaMimeType: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("MIME type of decoded `mediaBase64` (required when `mediaBase64` is set)."),
+      },
+    },
+    async (args) => {
+      try {
+        const hasMedia =
+          args.mediaBase64 !== undefined &&
+          args.mediaBase64 !== "" &&
+          args.mediaBase64.trim() !== "";
+        if (hasMedia && (args.mediaMimeType === undefined || args.mediaMimeType === "")) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "mediaMimeType is required when mediaBase64 is set",
+              },
+            ],
+          };
+        }
+        if (
+          !hasMedia &&
+          (args.name === undefined || args.name === "") &&
+          (args.mimeType === undefined || args.mimeType === "")
+        ) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "Provide at least one of name, mimeType, or mediaBase64 to update a file",
+              },
+            ],
+          };
+        }
+        const params: UpdateFileParams = { fileId: args.fileId };
+        if (args.name !== undefined) {
+          params.name = args.name;
+        }
+        if (args.mimeType !== undefined) {
+          params.mimeType = args.mimeType;
+        }
+        if (args.mediaBase64 !== undefined) {
+          params.mediaBase64 = args.mediaBase64;
+        }
+        if (args.mediaMimeType !== undefined) {
+          params.mediaMimeType = args.mediaMimeType;
+        }
+        const result = await driveFiles.updateFile(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive update failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],
