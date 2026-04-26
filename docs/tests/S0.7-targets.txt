@@ -1,0 +1,1 @@
+unit: tests/hooks/verify-completion-promise.test.ts
