@@ -92,6 +92,10 @@ jobs:
       id-token: write
     env:
       LOCAL_IMAGE: gdrive-mcp:build-${{ github.sha }}
+      # Secrets are not allowed in step `if:`; expose as job env for gating + inputs.
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      GCP_ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,11 +108,11 @@ jobs:
 
       - name: Authenticate to Google Cloud (WIF)
         id: auth
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_ARTIFACT_REGISTRY != '' }}
+        if: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && env.GCP_SERVICE_ACCOUNT != '' && env.GCP_ARTIFACT_REGISTRY != '' }}
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
       - name: Install gcloud SDK
         if: steps.auth.outcome == 'success'
@@ -118,7 +122,7 @@ jobs:
         if: steps.auth.outcome == 'success'
         shell: bash
         env:
-          GCP_ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+          GCP_ARTIFACT_REGISTRY: ${{ env.GCP_ARTIFACT_REGISTRY }}
         run: |
           set -euo pipefail
           host="${GCP_ARTIFACT_REGISTRY%%/*}"
@@ -128,7 +132,7 @@ jobs:
         if: steps.auth.outcome == 'success'
         shell: bash
         env:
-          GCP_ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+          GCP_ARTIFACT_REGISTRY: ${{ env.GCP_ARTIFACT_REGISTRY }}
         run: |
           set -euo pipefail
           remote="${GCP_ARTIFACT_REGISTRY}:${GITHUB_SHA}"
