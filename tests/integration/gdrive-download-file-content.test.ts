@@ -82,6 +82,9 @@ describe("TOK-25 download_file_content integration (stubbed Drive)", () => {
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
       },
+      async createFile() {
+        throw new Error("createFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

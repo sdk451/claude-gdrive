@@ -61,10 +61,28 @@ export type FileMetadataResult = {
   owners?: FileMetadataOwner[];
 };
 
+export type CreateFileParams = {
+  name: string;
+  /** Target file MIME (e.g. `application/vnd.google-apps.folder`, `application/vnd.google-apps.document`). */
+  mimeType: string;
+  parentFolderId?: string;
+  /** When set with `mediaMimeType`, uses `uploadType=multipart` (small payloads only; see server limit). */
+  mediaBase64?: string;
+  /** Required when `mediaBase64` is set. */
+  mediaMimeType?: string;
+};
+
+export type CreateFileResult = {
+  id: string;
+  name: string;
+  mimeType?: string;
+};
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
   downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
   getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
+  createFile(params: CreateFileParams): Promise<CreateFileResult>;
 }
