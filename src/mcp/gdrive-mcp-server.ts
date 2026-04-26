@@ -1,15 +1,19 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+import type { DriveFilesPort, ListFilesParams } from "../drive/drive-files-port.js";
+
+export type CreateGdriveMcpServerOptions = {
+  driveFiles: DriveFilesPort;
+};
 
 /**
- * Builds the process-wide MCP server instance for one Streamable HTTP session.
- *
- * S1.2: **client-visible** tool catalog is empty (`tools/list` → `[]`). The MCP
- * TypeScript SDK only wires `tools/list` + `tools/call` after the first
- * `registerTool`, so we register an internal plumbing tool and immediately
- * `disable()` it — it is omitted from listings but keeps handlers active (F-03/F-04).
- * Epic 2+ registers real Drive tools here (same pattern).
+ * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
+ * Registers Drive tools; Epic 2 starts with `search_files` (TOK-23).
  */
-export function createGdriveMcpServer(): McpServer {
+export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
+  const { driveFiles } = options;
+
   const server = new McpServer(
     {
       name: "gdrive-cowork-connector",
@@ -20,16 +24,59 @@ export function createGdriveMcpServer(): McpServer {
     },
   );
 
-  const plumbing = server.registerTool(
-    "gdrive._registry_init",
+  server.registerTool(
+    "search_files",
     {
-      description: "Internal: activates MCP tool routing; disabled and not listed.",
+      title: "Search Drive files",
+      description:
+        "Search Google Drive using Drive query syntax (`q` parameter to files.list). Example: `name contains 'report'` or `mimeType = 'application/vnd.google-apps.document'`.",
+      inputSchema: {
+        q: z
+          .string()
+          .min(1)
+          .describe(
+            "Drive search query. See https://developers.google.com/drive/api/guides/search-files",
+          ),
+        pageSize: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum files to return per page (Drive default applies if omitted)."),
+        pageToken: z
+          .string()
+          .optional()
+          .describe("Pagination token from a previous `search_files` response."),
+      },
     },
-    async () => ({
-      content: [{ type: "text" as const, text: "" }],
-    }),
+    async (args) => {
+      try {
+        const params: ListFilesParams = { q: args.q };
+        if (args.pageSize !== undefined) {
+          params.pageSize = args.pageSize;
+        }
+        if (args.pageToken !== undefined) {
+          params.pageToken = args.pageToken;
+        }
+        const result = await driveFiles.listFiles(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive search failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
   );
-  plumbing.disable();
 
   return server;
 }

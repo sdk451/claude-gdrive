@@ -5,15 +5,24 @@ import { InMemoryEventStore } from "@modelcontextprotocol/sdk/examples/shared/in
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 
+import { createFetchDriveFilesPort } from "../drive/fetch-drive-files.js";
+import type { DriveFilesPort } from "../drive/drive-files-port.js";
 import { createGdriveMcpServer } from "./gdrive-mcp-server.js";
 
 const transports = new Map<string, WebStandardStreamableHTTPServerTransport>();
+
+/** Until F-10 wires per-session Google tokens, default port rejects list calls without a token. */
+const defaultDriveFilesPort: DriveFilesPort = createFetchDriveFilesPort(() => undefined);
+
+export type MountStreamableMcpOptions = {
+  driveFiles?: DriveFilesPort;
+};
 
 /**
  * Stateful Streamable HTTP MCP at `/mcp` (POST / GET / DELETE).
  * Session id is issued on `initialize` and required thereafter (F-02).
  */
-export function mountStreamableMcp(app: Hono): void {
+export function mountStreamableMcp(app: Hono, options?: MountStreamableMcpOptions): void {
   app.use(
     "/mcp",
     cors({
@@ -70,7 +79,8 @@ export function mountStreamableMcp(app: Hono): void {
           const sid = transport.sessionId;
           if (sid) transports.delete(sid);
         };
-        const server = createGdriveMcpServer();
+        const driveFiles = options?.driveFiles ?? defaultDriveFilesPort;
+        const server = createGdriveMcpServer({ driveFiles });
         await server.connect(transport);
         return transport.handleRequest(raw, { parsedBody: body });
       }

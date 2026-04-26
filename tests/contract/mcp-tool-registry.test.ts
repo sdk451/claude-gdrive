@@ -36,8 +36,8 @@ async function openMcpSession(app: ReturnType<typeof createApp>) {
   return { sessionId: sessionId!, negotiated };
 }
 
-describe("MCP tool registry (TOK-19 / S1.2)", () => {
-  it("tools/list returns an empty tools array", async () => {
+describe("MCP tool registry (TOK-19 / S1.2, TOK-23 tools)", () => {
+  it("tools/list returns search_files (F-03)", async () => {
     const app = createApp();
     const { sessionId, negotiated } = await openMcpSession(app);
 
@@ -58,12 +58,13 @@ describe("MCP tool registry (TOK-19 / S1.2)", () => {
     });
     expect(listRes.status).toBe(200);
     const body = (await listRes.json()) as {
-      result?: { tools?: unknown[] };
+      result?: { tools?: Array<{ name?: string }> };
       error?: unknown;
     };
     expect(body.error).toBeUndefined();
     expect(Array.isArray(body.result?.tools)).toBe(true);
-    expect(body.result!.tools).toEqual([]);
+    const names = (body.result?.tools ?? []).map((t) => t.name);
+    expect(names).toContain("search_files");
   });
 
   it("tools/call for unknown tool returns text-first structured error (isError)", async () => {
