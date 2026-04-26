@@ -1,7 +1,7 @@
 name: security
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
   schedule:
     # Weekly, Monday 02:30 UTC
@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -41,9 +43,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   trivy_fs:
     name: trivy fs (high/critical gate)
@@ -51,9 +58,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0
+        # Pin to a known-safe release tag (post-2026-03 supply chain incident guidance).
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: fs
           scan-ref: .
