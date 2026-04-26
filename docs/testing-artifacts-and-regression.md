@@ -57,14 +57,16 @@ On every **push to `main`** (`ci.yml`):
 
 ## Release train (vision)
 
-**Target behaviour** (not fully implemented in `.github/workflows/release.yml` yet):
+**Implemented today (S0.9 / `release.yml`):**
 
-1. **Promote** a `main` build to staging (image digest / revision).
+- On **tag push** `v*.*.*`, when GCP secrets are configured, **promote** the Artifact Registry image tagged with **`${GITHUB_SHA}`** for that commit to **prod** Cloud Run using the image **digest**, then **curl** prod `/healthz`, `/.well-known/oauth-authorization-server`, and `/__smoke/mcp-tools-list`.
+
+**Still vision / follow-ups:**
+
+1. **Promote** a `main` build to staging (image digest / revision) — covered by `ci.yml` today.
 2. **Run full regression** against that environment (or reuse artifact gates plus smoke URLs).
 3. **On failure:** open a **fix PR** against `main` (automation/bot with `contents: write` + branch protection exceptions), re-run until green.
-4. **On success:** tag release, promote to prod per `docs/environments.md`.
-
-The checked-in **`release.yml`** is a **`workflow_dispatch` placeholder** until deploy credentials and bot permissions exist.
+4. **On success:** tag release (triggers prod path above); optional **GitHub Release** automation not wired yet.
 
 ## Linear status not updating (S0.2 / TOK-7 class of bugs)
 

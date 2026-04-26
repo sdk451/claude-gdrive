@@ -55,5 +55,16 @@ export function createApp(): Hono {
     }),
   );
 
+  // Release / load-balancer smoke only — not a full MCP tools/list transport.
+  app.get("/__smoke/mcp-tools-list", (c) =>
+    c.json({
+      jsonrpc: "2.0",
+      id: "smoke",
+      result: {
+        tools: [{ name: "smoke.stub", description: "Probe for prod release workflow" }],
+      },
+    }),
+  );
+
   return app;
 }

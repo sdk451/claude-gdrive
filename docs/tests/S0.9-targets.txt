@@ -1,0 +1,2 @@
+unit: tests/unit/release-workflow-baseline.test.ts
+unit: tests/unit/server-smoke-tools-list.test.ts
