@@ -69,6 +69,9 @@ describe("TOK-25 download_file_content integration (stubbed Drive)", () => {
       async listFiles() {
         return { files: [] };
       },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
+      },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },

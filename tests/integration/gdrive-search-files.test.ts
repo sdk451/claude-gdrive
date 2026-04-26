@@ -76,6 +76,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
           nextPageToken: "next-abc",
         };
       },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
+      },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },

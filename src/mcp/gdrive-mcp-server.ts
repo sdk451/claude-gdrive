@@ -8,6 +8,7 @@ import type {
   GetFileMetadataParams,
   ListFilePermissionsParams,
   ListFilesParams,
+  ListFolderParams,
   MoveFileParams,
   ReadFileContentParams,
   ShareFileGrantParams,
@@ -20,7 +21,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`, TOK-32 `share_file`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-33 `list_folder`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`, TOK-32 `share_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -81,6 +82,61 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive search failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_folder",
+    {
+      title: "List files in a Drive folder",
+      description:
+        "List files and folders whose parent is the given folder id (`files.list` with `'<folderId>' in parents`, excluding trashed). Supports pagination via `pageToken` from a prior response.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        folderId: z
+          .string()
+          .min(1)
+          .describe(
+            "Drive folder `fileId` whose children to list (the folder itself is not included).",
+          ),
+        pageSize: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum items to return per page (Drive default applies if omitted)."),
+        pageToken: z
+          .string()
+          .optional()
+          .describe("Pagination token from a previous `list_folder` response."),
+      },
+    },
+    async (args) => {
+      try {
+        const params: ListFolderParams = { folderId: args.folderId };
+        if (args.pageSize !== undefined) {
+          params.pageSize = args.pageSize;
+        }
+        if (args.pageToken !== undefined) {
+          params.pageToken = args.pageToken;
+        }
+        const result = await driveFiles.listFolder(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive list folder failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

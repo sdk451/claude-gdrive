@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_NEGOTIATED_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 
-import type { DriveFilesPort, ReadFileContentParams } from "../../src/drive/drive-files-port.js";
+import type { DriveFilesPort, ListFolderParams } from "../../src/drive/drive-files-port.js";
 import { createApp } from "../../src/server.js";
 
 const MCP_POST_ACCEPT = "application/json, text/event-stream";
@@ -15,13 +15,13 @@ function initializeBody(id: number | string) {
     params: {
       protocolVersion: DEFAULT_NEGOTIATED_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "vitest-read-file", version: "0.0.0" },
+      clientInfo: { name: "vitest-drive-list-folder", version: "0.0.0" },
     },
   };
 }
 
-describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
-  it("tools/call read_file_content without stub returns isError (no token yet)", async () => {
+describe("TOK-33 list_folder integration (stubbed Drive)", () => {
+  it("tools/call list_folder without stub returns isError (no token yet)", async () => {
     const app = createApp();
 
     const initRes = await app.request("http://localhost/mcp", {
@@ -30,7 +30,7 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-24-no-token")),
+      body: JSON.stringify(initializeBody("tok-33-no-token")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -47,9 +47,9 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 20,
+        id: 11,
         method: "tools/call",
-        params: { name: "read_file_content", arguments: { fileId: "abc123" } },
+        params: { name: "list_folder", arguments: { folderId: "folder-abc" } },
       }),
     });
     expect(callRes.status).toBe(200);
@@ -57,25 +57,24 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
       result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
     expect(body.result?.isError).toBe(true);
-    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth|Complete OAuth/i);
+    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth/i);
   });
 
-  it("tools/call read_file_content forwards fileId and exportMimeType to stub", async () => {
-    const reads: ReadFileContentParams[] = [];
+  it("tools/call list_folder forwards folderId and pagination to Drive port", async () => {
+    const calls: ListFolderParams[] = [];
     const stub: DriveFilesPort = {
       async listFiles() {
-        return { files: [] };
+        throw new Error("listFiles not used in this test");
       },
-      async listFolder() {
-        throw new Error("listFolder not used in this test");
-      },
-      async readFileContent(params) {
-        reads.push(params);
+      async listFolder(params) {
+        calls.push(params);
         return {
-          mimeType: "text/plain",
-          encoding: "utf-8",
-          data: "Hello, Doc",
+          files: [{ id: "child-1", name: "Note", mimeType: "text/plain" }],
+          nextPageToken: "tok-next",
         };
+      },
+      async readFileContent() {
+        throw new Error("readFileContent not used in this test");
       },
       async downloadFileContent() {
         throw new Error("downloadFileContent not used in this test");
@@ -108,7 +107,7 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-24-int")),
+      body: JSON.stringify(initializeBody("tok-33-int")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -125,29 +124,34 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 21,
+        id: 10,
         method: "tools/call",
         params: {
-          name: "read_file_content",
-          arguments: { fileId: "doc-1", exportMimeType: "text/plain" },
+          name: "list_folder",
+          arguments: { folderId: "parents-folder", pageSize: 25, pageToken: "prev" },
         },
       }),
     });
     expect(callRes.status).toBe(200);
     const body = (await callRes.json()) as {
-      result?: { isError?: boolean; content?: Array<{ text?: string }> };
+      result?: { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
+      error?: unknown;
     };
+    expect(body.error).toBeUndefined();
     expect(body.result?.isError).not.toBe(true);
-    const parsed = JSON.parse(body.result?.content?.[0]?.text ?? "{}") as {
-      mimeType: string;
-      encoding: string;
-      data: string;
+    const text = body.result?.content?.[0]?.text;
+    expect(text).toBeDefined();
+    const parsed = JSON.parse(text!) as {
+      files: Array<{ id: string; name: string }>;
+      nextPageToken?: string;
     };
-    expect(parsed.data).toBe("Hello, Doc");
-    expect(parsed.encoding).toBe("utf-8");
+    expect(parsed.files).toHaveLength(1);
+    expect(parsed.files[0]?.id).toBe("child-1");
+    expect(parsed.nextPageToken).toBe("tok-next");
 
-    expect(reads).toHaveLength(1);
-    expect(reads[0]?.fileId).toBe("doc-1");
-    expect(reads[0]?.exportMimeType).toBe("text/plain");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.folderId).toBe("parents-folder");
+    expect(calls[0]?.pageSize).toBe(25);
+    expect(calls[0]?.pageToken).toBe("prev");
   });
 });

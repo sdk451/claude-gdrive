@@ -16,6 +16,7 @@ import type {
   ListFilePermissionsResult,
   ListFilesParams,
   ListFilesResult,
+  ListFolderParams,
   MoveFileParams,
   MoveFileResult,
   ReadFileContentParams,
@@ -140,6 +141,64 @@ function buildMultipartCreateBody(
   return Buffer.concat([Buffer.from(head, "utf8"), mediaBuffer, Buffer.from(tail, "utf8")]);
 }
 
+function escapeDriveQueryFolderId(folderId: string): string {
+  return folderId.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function fetchDriveFilesList(
+  fetchFn: typeof fetch,
+  token: string,
+  q: string,
+  pageSize?: number,
+  pageToken?: string,
+): Promise<ListFilesResult> {
+  const url = new URL(DRIVE_FILES_ENDPOINT);
+  url.searchParams.set("q", q);
+  url.searchParams.set("fields", "nextPageToken, files(id, name, mimeType, modifiedTime, size)");
+  if (pageSize != null) {
+    url.searchParams.set("pageSize", String(pageSize));
+  }
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+
+  const res = await fetchFn(url.href, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(driveErrorMessage(data, res.status));
+  }
+
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid Drive API response");
+  }
+
+  const o = data as Record<string, unknown>;
+  const filesRaw = Array.isArray(o.files) ? o.files : [];
+  const files: DriveFileRef[] = filesRaw.map((row) => {
+    const f = row as Record<string, unknown>;
+    const ref: DriveFileRef = {
+      id: String(f.id ?? ""),
+      name: String(f.name ?? ""),
+    };
+    if (typeof f.mimeType === "string") {
+      ref.mimeType = f.mimeType;
+    }
+    if (typeof f.modifiedTime === "string") {
+      ref.modifiedTime = f.modifiedTime;
+    }
+    if (typeof f.size === "string") {
+      ref.size = f.size;
+    }
+    return ref;
+  });
+
+  const nextPageToken = typeof o.nextPageToken === "string" ? o.nextPageToken : undefined;
+  return nextPageToken ? { files, nextPageToken } : { files };
+}
+
 /**
  * Production-oriented `files.list` via `fetch`.
  * `getAccessToken` must return a valid Google OAuth access token (per-session wiring is F-10).
@@ -158,55 +217,19 @@ export function createFetchDriveFilesPort(
           "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
         );
       }
+      return fetchDriveFilesList(fetchFn, token, params.q, params.pageSize, params.pageToken);
+    },
 
-      const url = new URL(DRIVE_FILES_ENDPOINT);
-      url.searchParams.set("q", params.q);
-      url.searchParams.set(
-        "fields",
-        "nextPageToken, files(id, name, mimeType, modifiedTime, size)",
-      );
-      if (params.pageSize != null) {
-        url.searchParams.set("pageSize", String(params.pageSize));
+    async listFolder(params: ListFolderParams): Promise<ListFilesResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
       }
-      if (params.pageToken) {
-        url.searchParams.set("pageToken", params.pageToken);
-      }
-
-      const res = await fetchFn(url.href, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data: unknown = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(driveErrorMessage(data, res.status));
-      }
-
-      if (!data || typeof data !== "object") {
-        throw new Error("Invalid Drive API response");
-      }
-
-      const o = data as Record<string, unknown>;
-      const filesRaw = Array.isArray(o.files) ? o.files : [];
-      const files: DriveFileRef[] = filesRaw.map((row) => {
-        const f = row as Record<string, unknown>;
-        const ref: DriveFileRef = {
-          id: String(f.id ?? ""),
-          name: String(f.name ?? ""),
-        };
-        if (typeof f.mimeType === "string") {
-          ref.mimeType = f.mimeType;
-        }
-        if (typeof f.modifiedTime === "string") {
-          ref.modifiedTime = f.modifiedTime;
-        }
-        if (typeof f.size === "string") {
-          ref.size = f.size;
-        }
-        return ref;
-      });
-
-      const nextPageToken = typeof o.nextPageToken === "string" ? o.nextPageToken : undefined;
-      return nextPageToken ? { files, nextPageToken } : { files };
+      const literal = escapeDriveQueryFolderId(params.folderId);
+      const q = `'${literal}' in parents and trashed = false`;
+      return fetchDriveFilesList(fetchFn, token, q, params.pageSize, params.pageToken);
     },
 
     async readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult> {
