@@ -19,17 +19,24 @@ declare -A UNIT API COMPONENT E2E VISUAL UX_FLOW OTHER
 while IFS= read -r line || [ -n "$line" ]; do
   [ -z "$line" ] && continue
   case "$line" in \#*) continue ;; esac
-  TIER="${line%%:*}"
-  SPEC="${line#*: }"
-  case "$TIER" in
-    unit) UNIT[$SPEC]=1 ;;
-    api) API[$SPEC]=1 ;;
-    component) COMPONENT[$SPEC]=1 ;;
-    e2e) E2E[$SPEC]=1 ;;
-    visual) VISUAL[$SPEC]=1 ;;
-    ux-flow) UX_FLOW[$SPEC]=1 ;;
-    *) OTHER[$line]=1 ;;
-  esac
+
+  # Preferred format is "<tier>: <spec>". For backwards compatibility,
+  # treat un-prefixed lines as unit specs (NOT arbitrary shell).
+  if [[ "$line" =~ ^([a-z-]+):[[:space:]]*(.*)$ ]]; then
+    TIER="${BASH_REMATCH[1]}"
+    SPEC="${BASH_REMATCH[2]}"
+    case "$TIER" in
+      unit) UNIT[$SPEC]=1 ;;
+      api) API[$SPEC]=1 ;;
+      component) COMPONENT[$SPEC]=1 ;;
+      e2e) E2E[$SPEC]=1 ;;
+      visual) VISUAL[$SPEC]=1 ;;
+      ux-flow) UX_FLOW[$SPEC]=1 ;;
+      *) OTHER[$line]=1 ;;
+    esac
+  else
+    UNIT[$line]=1
+  fi
 done < "$TARGETS"
 
 FAIL=0
