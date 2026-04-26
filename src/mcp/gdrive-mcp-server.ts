@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type {
   DriveFilesPort,
+  DownloadFileContentParams,
   ListFilesParams,
   ReadFileContentParams,
 } from "../drive/drive-files-port.js";
@@ -13,7 +14,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (`search_files` TOK-23, `read_file_content` TOK-24).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -116,6 +117,38 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive read failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "download_file_content",
+    {
+      title: "Download Drive file (binary)",
+      description:
+        "Download stored file bytes via `files.get` with `alt=media`. Returns JSON with `mimeType` and `base64` (always base64, safe for PDFs/images/Office). For Google Docs/Sheets/Slides text export, prefer `read_file_content` with `exportMimeType`.",
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` from metadata or search results."),
+      },
+    },
+    async (args) => {
+      try {
+        const params: DownloadFileContentParams = { fileId: args.fileId };
+        const result = await driveFiles.downloadFileContent(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive download failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

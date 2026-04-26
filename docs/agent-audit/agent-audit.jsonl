@@ -114,3 +114,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:50:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-24"},"context":{"branch":"TOK-24/s01-read-file-content"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:50:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-24"},"context":{"branch":"TOK-24/s01-read-file-content"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:50:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-24"},"context":{"branch":"TOK-24/s01-read-file-content"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:54:00.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-25"},"context":{"branch":"TOK-25/s01-download-file-content"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:54:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-25"},"context":{"branch":"TOK-25/s01-download-file-content"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:54:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-25"},"context":{"branch":"TOK-25/s01-download-file-content"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:54:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-25"},"context":{"branch":"TOK-25/s01-download-file-content"}}

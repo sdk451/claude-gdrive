@@ -79,6 +79,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },
+      async downloadFileContent() {
+        throw new Error("downloadFileContent not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
