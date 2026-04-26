@@ -94,6 +94,9 @@ describe("TOK-25 download_file_content integration (stubbed Drive)", () => {
       async moveFile() {
         throw new Error("moveFile not used in this test");
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

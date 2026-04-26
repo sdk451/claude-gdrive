@@ -37,7 +37,7 @@ async function openMcpSession(app: ReturnType<typeof createApp>) {
 }
 
 describe("MCP tool registry (TOK-19 / S1.2, Epic 2 + Epic 3 tools)", () => {
-  it("tools/list returns Epic 2 Drive tools through move_file (F-03)", async () => {
+  it("tools/list returns Epic 2 Drive tools through share_file (F-03)", async () => {
     const app = createApp();
     const { sessionId, negotiated } = await openMcpSession(app);
 

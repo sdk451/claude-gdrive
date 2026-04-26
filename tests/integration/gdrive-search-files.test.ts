@@ -97,6 +97,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       async moveFile() {
         throw new Error("moveFile not used in this test");
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

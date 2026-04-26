@@ -10,6 +10,7 @@ import type {
   ListFilesParams,
   MoveFileParams,
   ReadFileContentParams,
+  ShareFileGrantParams,
   UpdateFileParams,
 } from "../drive/drive-files-port.js";
 
@@ -19,7 +20,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`, TOK-32 `share_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -465,6 +466,153 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive move failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "share_file",
+    {
+      title: "Grant or revoke Drive file permissions",
+      description:
+        'Add or remove sharing: `action: "grant"` uses `permissions.create` (set `granteeType` `user` | `group` | `domain` | `anyone`, `role`, and `emailAddress` or `domain` as required); `action: "revoke"` uses `permissions.delete` with `permissionId`.',
+      annotations: { destructiveHint: true },
+      inputSchema: {
+        action: z
+          .enum(["grant", "revoke"])
+          .describe('Use "grant" to add an ACL entry, "revoke" to remove one by permission id.'),
+        fileId: z.string().min(1).describe("Target file or folder `fileId`."),
+        role: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Drive role when granting (e.g. `reader`, `writer`). Required when action is grant.",
+          ),
+        granteeType: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Drive permission type when granting: `user`, `group`, `domain`, or `anyone`. Required when action is grant.",
+          ),
+        emailAddress: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Email for `user` or `group` grantee (required for those types)."),
+        domain: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Domain when `granteeType` is `domain` (required for domain)."),
+        permissionId: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Permission id to delete when action is revoke (from `get_file_permissions`)."),
+      },
+    },
+    async (args) => {
+      try {
+        if (args.action === "revoke") {
+          if (args.permissionId === undefined || args.permissionId === "") {
+            return {
+              isError: true as const,
+              content: [
+                {
+                  type: "text" as const,
+                  text: "permissionId is required when action is revoke",
+                },
+              ],
+            };
+          }
+          const result = await driveFiles.shareFile({
+            action: "revoke",
+            fileId: args.fileId,
+            permissionId: args.permissionId,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        if (
+          args.role === undefined ||
+          args.role === "" ||
+          args.granteeType === undefined ||
+          args.granteeType === ""
+        ) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "role and granteeType are required when action is grant",
+              },
+            ],
+          };
+        }
+
+        const gt = args.granteeType.trim().toLowerCase();
+        if (
+          (gt === "user" || gt === "group") &&
+          (args.emailAddress === undefined || args.emailAddress === "")
+        ) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "emailAddress is required when granteeType is user or group",
+              },
+            ],
+          };
+        }
+        if (gt === "domain" && (args.domain === undefined || args.domain === "")) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "domain is required when granteeType is domain",
+              },
+            ],
+          };
+        }
+
+        const params: ShareFileGrantParams = {
+          action: "grant",
+          fileId: args.fileId,
+          role: args.role,
+          granteeType: args.granteeType,
+        };
+        if (args.emailAddress !== undefined) {
+          params.emailAddress = args.emailAddress;
+        }
+        if (args.domain !== undefined) {
+          params.domain = args.domain;
+        }
+        const result = await driveFiles.shareFile(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive share failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

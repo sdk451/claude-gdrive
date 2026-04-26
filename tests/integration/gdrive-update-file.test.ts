@@ -102,6 +102,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       async moveFile() {
         throw new Error("moveFile not used in this test");
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -190,6 +193,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       async moveFile() {
         throw new Error("moveFile not used in this test");
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -265,6 +271,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       async moveFile() {
         throw new Error("moveFile not used in this test");
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -336,6 +345,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       },
       async moveFile() {
         throw new Error("moveFile not used in this test");
+      },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
       },
     };
 

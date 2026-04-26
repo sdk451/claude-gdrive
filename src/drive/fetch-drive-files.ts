@@ -20,6 +20,9 @@ import type {
   MoveFileResult,
   ReadFileContentParams,
   ReadFileContentResult,
+  ShareFileGrantResult,
+  ShareFileParams,
+  ShareFileResult,
   UpdateFileParams,
   UpdateFileResult,
 } from "./drive-files-port.js";
@@ -47,6 +50,8 @@ const FILE_METADATA_FIELDS =
   "id,name,mimeType,size,modifiedTime,shared,owners(displayName,permissionId)";
 
 const FILE_PERMISSIONS_LIST_FIELDS = "nextPageToken,permissions(id,type,role,domain,displayName)";
+
+const PERMISSION_CREATE_FIELDS = "id,type,role,domain,displayName";
 
 function parsePermissionRow(row: Record<string, unknown>): FilePermissionRef {
   const ref: FilePermissionRef = {
@@ -533,6 +538,87 @@ export function createFetchDriveFilesPort(
         throw new Error("Invalid Drive API response");
       }
       return parseCreatedFile(data as Record<string, unknown>);
+    },
+
+    async shareFile(params: ShareFileParams): Promise<ShareFileResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      if (params.action === "revoke") {
+        const u = new URL(
+          `${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}/permissions/${encodeURIComponent(params.permissionId)}`,
+        );
+        const res = await fetchFn(u.href, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const data: unknown = await res.json().catch(() => null);
+          throw new Error(driveErrorMessage(data, res.status));
+        }
+        return { action: "revoke", deleted: true };
+      }
+
+      const role = params.role.trim();
+      if (role === "") {
+        throw new Error("role is required for grant");
+      }
+      const gt = params.granteeType.trim().toLowerCase();
+      if (gt === "user" || gt === "group") {
+        if (params.emailAddress === undefined || params.emailAddress.trim() === "") {
+          throw new Error("emailAddress is required when granteeType is user or group");
+        }
+      } else if (gt === "domain") {
+        if (params.domain === undefined || params.domain.trim() === "") {
+          throw new Error("domain is required when granteeType is domain");
+        }
+      }
+
+      const body: Record<string, unknown> = { type: gt, role };
+      if (params.emailAddress !== undefined && params.emailAddress.trim() !== "") {
+        body.emailAddress = params.emailAddress.trim();
+      }
+      if (params.domain !== undefined && params.domain.trim() !== "") {
+        body.domain = params.domain.trim();
+      }
+
+      const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}/permissions`);
+      u.searchParams.set("fields", PERMISSION_CREATE_FIELDS);
+
+      const res = await fetchFn(u.href, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Drive API response");
+      }
+      const row = parsePermissionRow(data as Record<string, unknown>);
+      const out: ShareFileGrantResult = {
+        action: "grant",
+        permissionId: row.id,
+        type: row.type,
+        role: row.role,
+      };
+      if (row.displayName !== undefined) {
+        out.displayName = row.displayName;
+      }
+      if (row.domain !== undefined) {
+        out.domain = row.domain;
+      }
+      return out;
     },
   };
 }
