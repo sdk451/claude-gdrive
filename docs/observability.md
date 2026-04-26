@@ -59,14 +59,14 @@ After staging deploy, with `SENTRY_DSN` set on the service, call this route once
 
 ## Alerting (initial set)
 
-| Alert                      | Condition                              | Severity |
-| -------------------------- | -------------------------------------- | -------- |
-| `tools.list.empty`         | any non-zero rate over 5 min           | page     |
-| `oauth.refresh_failure`    | failure rate > 1% over 15 min          | page     |
-| `cloud_run_5xx`            | 5xx rate > 1% over 10 min              | page     |
-| `latency_p95_high`         | p95 > 3 s over 15 min                  | warn     |
-| `dependency_high_severity` | new high/critical CVE in scan          | warn     |
-| `secret_in_log`            | log entry matches token regex (canary) | page     |
+| Alert                      | Condition                              | Severity | Runbook                                                                                |
+| -------------------------- | -------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `tools.list.empty`         | any non-zero rate over 5 min           | page     | [`runbooks/tools-list-empty.md`](runbooks/tools-list-empty.md)                         |
+| `oauth.refresh_failure`    | failure rate > 1% over 15 min          | page     | [`runbooks/oauth-refresh-failure.md`](runbooks/oauth-refresh-failure.md)               |
+| `cloud_run_5xx`            | 5xx rate > 1% over 10 min              | page     | [`runbooks/cloud-run-5xx.md`](runbooks/cloud-run-5xx.md)                               |
+| `latency_p95_high`         | p95 > 3 s over 15 min                  | warn     | [`runbooks/latency-p95-high.md`](runbooks/latency-p95-high.md)                         |
+| `dependency_high_severity` | new high/critical CVE in scan          | warn     | [`runbooks/dependency-high-severity-cve.md`](runbooks/dependency-high-severity-cve.md) |
+| `secret_in_log`            | log entry matches token regex (canary) | page     | [`runbooks/secret-in-log.md`](runbooks/secret-in-log.md)                               |
 
 A simple log-based "secret-in-log" canary regex (e.g., looking for `ya29\.` Google access-token prefix or `1//` refresh-token prefix in any log entry) runs as a Cloud Logging alerting policy. If it ever fires, treat as a hard incident.
 
@@ -79,7 +79,7 @@ A single Cloud Monitoring dashboard tracks: request rate, p50/p95/p99 latency, 5
 
 ## Operator runbooks
 
-A short runbook lives at `docs/runbooks/` for each pageable alert (created during Epic 0). Each runbook follows: trigger → first check → likely causes → mitigation → rollback.
+A short runbook lives at `docs/runbooks/` for **each alert** in the table above. **Index:** [`docs/runbooks/README.md`](runbooks/README.md). Each runbook follows: trigger → first checks → likely causes → mitigation → rollback.
 
 ## Data retention
 

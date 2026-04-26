@@ -23,7 +23,8 @@
     "test:contract": "vitest run tests/contract",
     "test:integration": "vitest run tests/integration",
     "test:unit:ci": "vitest run --reporter=default --reporter=json --reporter=junit --outputFile.json=reports/vitest-unit.json --outputFile.junit=reports/vitest-unit-junit.xml",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "inspector:validate": "bash scripts/mcp-inspector-validate.sh"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",

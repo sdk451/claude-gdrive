@@ -170,3 +170,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:36:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-42"},"context":{"branch":"TOK-42/s01-indirect-prompt-injection"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:44:00.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-43"},"context":{"branch":"TOK-43/s01-docs-runbooks-complete"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:44:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-43"},"context":{"branch":"TOK-43/s01-docs-runbooks-complete"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:44:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-43"},"context":{"branch":"TOK-43/s01-docs-runbooks-complete"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T22:44:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-43"},"context":{"branch":"TOK-43/s01-docs-runbooks-complete"}}
