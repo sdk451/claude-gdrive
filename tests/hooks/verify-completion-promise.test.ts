@@ -4,19 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-function decodeMaybeUtf16le(buf: Buffer | string | null | undefined): string {
-  if (!buf) return "";
-  if (typeof buf === "string") return buf;
-  if (buf.length >= 2) {
-    let nulCount = 0;
-    for (let i = 1; i < buf.length; i += 2) {
-      if (buf[i] === 0) nulCount++;
-    }
-    if (nulCount > buf.length / 8) return buf.toString("utf16le");
-  }
-  return buf.toString("utf8");
-}
-
 function tryGetExecutable(cmd: string): string | null {
   const which = process.platform === "win32" ? "where" : "which";
   const res = spawnSync(which, [cmd], { encoding: "utf8" });
