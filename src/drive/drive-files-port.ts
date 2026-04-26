@@ -98,6 +98,18 @@ export type CreateFileResult = {
   mimeType?: string;
 };
 
+export type UpdateFileParams = {
+  fileId: string;
+  name?: string;
+  mimeType?: string;
+  /** When set with `mediaMimeType`, uses multipart `files.update` (size limits apply). */
+  mediaBase64?: string;
+  /** Required when `mediaBase64` is set. */
+  mediaMimeType?: string;
+};
+
+export type UpdateFileResult = CreateFileResult;
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
@@ -106,4 +118,5 @@ export interface DriveFilesPort {
   getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
   listFilePermissions(params: ListFilePermissionsParams): Promise<ListFilePermissionsResult>;
   createFile(params: CreateFileParams): Promise<CreateFileResult>;
+  updateFile(params: UpdateFileParams): Promise<UpdateFileResult>;
 }

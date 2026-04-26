@@ -1,0 +1,3 @@
+tests/contract/mcp-tool-registry.test.ts
+tests/contract/mcp-update-file-schema.test.ts
+tests/integration/gdrive-update-file.test.ts
