@@ -7,12 +7,9 @@ The project diary lives at `docs/diary/{YYYY-MM}/{YYYY-MM-DD}.md`. It is the
 project's narrative audit trail and is committed to git, separate from the
 private memory store (see `41-memory.mdc`).
 
-**Story branches:** the autonomous / implementer loop runs
-`scripts/git/strip-narrative-logs-from-index.sh` before each commit so local
-diary hook writes are **not** included in PRs (merge hygiene). Canonical diary
-lines for shipped work still land on **`main`** at merge time or via follow-up
-commits there; `.gitattributes` keeps `docs/diary/**` conflicts rare when merging
-into `main`.
+**Merges:** `docs/diary/**` uses `merge=union` in `.gitattributes` so parallel
+append-only edits from `main` and story branches combine without manual
+conflict resolution in the common case.
 
 ## When to author a summary
 Write a real session/work summary into `.cursor/session-summary.md` when:

@@ -8,20 +8,21 @@ This repo maintains an **append-only** audit log to trace autonomous execution:
 
 ## Files
 
-- `docs/agent-audit/agent-audit.jsonl`: append-only log (canonical on **`main`**)
+- `docs/agent-audit/agent-audit.jsonl`: append-only log
 - Local hook runner also writes a gitignored working log to `reports/agent-audit.jsonl` so normal development doesn’t constantly dirty the working tree.
 
-### Merge hygiene (story branches)
+### Why merges used to conflict — and what we do now
 
-Autonomous / implementer loops may append persona JSON here while working, but
-**before every `git commit` on a non-`main` branch** run:
+`main` and a long-lived story branch often **both append** to this file (and to
+`docs/diary/**`) after the same merge-base. Git’s default merge then treats that
+as clashing edits on the same region. This repo sets **`merge=union`** for those
+paths in **`.gitattributes`**: Git’s union merge driver keeps the **union of
+lines** from both parents, which matches append-only JSONL and typical diary
+additions. Commit audit + diary lines on the PR branch as usual; no strip step.
 
-`bash scripts/git/strip-narrative-logs-from-index.sh`
-
-so `docs/agent-audit/agent-audit.jsonl` and `docs/diary/**` are **not** part of
-the PR. Root **`.gitattributes`** sets `merge=ours` for those paths so merges
-into `main` prefer the checked-out branch’s version when Git does a textual
-merge — combined with the strip script, PRs stay focused on product changes.
+**Caveat:** `merge=union` applies to Git **merge** / **merge** PR completion.
+GitHub **squash** merges use a different code path; if a squash still conflicts,
+merge/rebase `main` into the branch first or use a merge commit for that PR.
 
 ## Schema: `AgentAuditRecord` (v1)
 

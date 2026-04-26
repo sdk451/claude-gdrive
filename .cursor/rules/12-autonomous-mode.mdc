@@ -46,11 +46,8 @@ matching story id on the current branch.
    moves the Linear issue to `In Progress` and confirms the branch matches
    `<STORY_ID>/...`.
 2. **Loop.** Run the Extended TDD Ralph loop in `21-implementer.mdc` /
-   `.cursor/commands/implementer.md`. Commit per substantive iteration **after**
-   `bash scripts/git/strip-narrative-logs-from-index.sh` on story branches so
-   `docs/diary/**` and `docs/agent-audit/agent-audit.jsonl` stay merge-clean
-   (see `.gitattributes` + `autonomous.md`). The linear-sync stop-hook nudges to
-   comment + ledger each unsynced hash.
+   `.cursor/commands/implementer.md`. Commit per substantive iteration. The
+   linear-sync stop-hook nudges to comment + ledger each unsynced hash.
 3. **Close.** On `STORY_COMPLETE` + targeted suite all green:
    - Final commit, comment, ledger entry.
    - `git push -u origin HEAD`.

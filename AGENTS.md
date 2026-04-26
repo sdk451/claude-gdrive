@@ -76,7 +76,7 @@ Source: `docs/diary/` and `.cursor/hooks/diary-append.sh`.
 
 - The diary records **end-of-session/workflow summaries** and **significant decisions or updates to foundational documents** (brief, architecture, tech-stack, UX, constitution, backlog, story design docs).
 - Routine tool calls and shell activity do **not** go in the diary. If you find yourself appending an entry per tool call, stop — the hook is intentionally throttled.
-- **Autonomous / story branches:** run `bash scripts/git/strip-narrative-logs-from-index.sh` before each `git commit` so `docs/diary/**` and `docs/agent-audit/agent-audit.jsonl` stay off PRs (see `.gitattributes` and `docs/agent-audit/README.md`).
+- **Parallel branches:** `.gitattributes` sets `merge=union` for `docs/diary/**` and `docs/agent-audit/agent-audit.jsonl` so append-only narrative merges cleanly into `main` (see `docs/agent-audit/README.md`).
 
 ## Linear
 

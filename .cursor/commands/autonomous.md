@@ -57,16 +57,13 @@ Implementer), and ship it without waiting for human review. CI is the gate.
 ### 4. Plan & test architecture (BMAD inner cycle)
 - Hand off to `/planner` for `$STORY_ID`. Output: `docs/designs/$STORY_ID.md`.
   Wait for completion before proceeding.
-- **Audit log (local only on story branches):** Append a `persona` entry to
-  `docs/agent-audit/agent-audit.jsonl` for traceability while you work — but
-  **run `bash scripts/git/strip-narrative-logs-from-index.sh` before every
-  `git commit`** so diary + audit are **not part of the PR** (see `.gitattributes`
-  and `docs/agent-audit/README.md`). Fold narrative into `main` after merge if
-  needed (housekeeping commit on `main`), or rely on Linear + CI artifacts.
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `planner`, story id, branch, and timestamp.
 - Hand off to `/test-architect` for `$STORY_ID`. Output:
   `docs/tests/$STORY_ID.md` and `docs/tests/$STORY_ID-targets.txt`, plus the
   initial failing tests.
-- **Audit log:** Same append + **strip-before-commit** rule as for the planner step.
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `test-architect`, story id, branch, and timestamp.
 - Inspect both outputs. If either is missing or visibly thin, abort with
   `BLOCKED` and a summary — do not paper over a weak design with code.
 
@@ -74,11 +71,8 @@ Implementer), and ship it without waiting for human review. CI is the gate.
 - Hand off to `/implementer` for `$STORY_ID`. Run the Extended TDD Ralph
   loop until `<promise>STORY_COMPLETE</promise>` AND the targeted suite is
   fully green. Per-iteration commits are expected.
-- **Audit log:** Same append + **strip-before-commit** rule as in step 4.
-- **Before every `git commit`** while not on `main`, run
-  `bash scripts/git/strip-narrative-logs-from-index.sh` so `docs/diary/**` and
-  `docs/agent-audit/agent-audit.jsonl` are not part of the PR (see
-  `.gitattributes` + `docs/agent-audit/README.md`).
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `implementer`, story id, branch, and timestamp.
 - The linear-sync stop-hook will nudge for each unsynced commit. Honour it:
   post `save_comment` with the contract from `11-linear-sync.mdc` and update
   `.cursor/linear-synced.txt`.
@@ -130,10 +124,6 @@ See `docs/testing-artifacts-and-regression.md` § Linear status.
   (`$STORY_ID shipped — PR <url>, status <state>`).
 
 ## Hard rules
-- **Strip narrative logs before story commits.** On non-`main` branches, run
-  `bash scripts/git/strip-narrative-logs-from-index.sh` before **every**
-  `git commit` so `docs/diary/**` and `docs/agent-audit/agent-audit.jsonl` do
-  not create merge noise (see `.gitattributes`).
 - **Never push to `main`.** Even with `gh pr merge --auto`, the merge is via
   PR; the loop never resets `main` itself.
 - **Never merge a red PR manually.** The `--auto` flag waits for required
