@@ -57,6 +57,31 @@ describe("parseBootEnv", () => {
     if (!r.ok) return;
     expect(r.value.sessionSecretHex).toBe(`${"a".repeat(32)}${"b".repeat(32)}`);
     expect(r.value.googleClientId).toBe("123.apps.googleusercontent.com");
+    expect(r.value.publicIssuerOrigin).toBe("http://127.0.0.1:3000");
+  });
+
+  it("uses PUBLIC_ISSUER_URL when set", () => {
+    const r = parseBootEnv({
+      GOOGLE_CLIENT_ID: "123.apps.googleusercontent.com",
+      GOOGLE_CLIENT_SECRET: "GOCSPX-not-a-real-secret",
+      SESSION_SECRET: validSession,
+      PUBLIC_ISSUER_URL: "https://mcp.example.com/",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.publicIssuerOrigin).toBe("https://mcp.example.com");
+  });
+
+  it("rejects invalid PUBLIC_ISSUER_URL", () => {
+    const r = parseBootEnv({
+      GOOGLE_CLIENT_ID: "123.apps.googleusercontent.com",
+      GOOGLE_CLIENT_SECRET: "GOCSPX-not-a-real-secret",
+      SESSION_SECRET: validSession,
+      PUBLIC_ISSUER_URL: "not a url",
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.message).toContain("PUBLIC_ISSUER_URL");
   });
 
   it("accepts all-zero SESSION_SECRET (CI / test fixture)", () => {

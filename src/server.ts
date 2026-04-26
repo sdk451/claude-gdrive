@@ -7,6 +7,15 @@ import {
 } from "./observability/logger.js";
 import { readinessSentryPing } from "./observability/sentry-readiness.js";
 import { mountStreamableMcp } from "./mcp/streamable-http.js";
+import {
+  buildAuthorizationServerMetadata,
+  DEFAULT_OAUTH_ISSUER_BASE_URL,
+} from "./oauth/authorization-server-metadata.js";
+
+export type CreateAppOptions = {
+  /** Issuer base URL for RFC 8414 metadata (from `PUBLIC_ISSUER_URL` at boot). */
+  oauthIssuerBaseUrl?: string;
+};
 
 /**
  * Build a Hono app for the gdrive-cowork-connector MCP server.
@@ -16,7 +25,10 @@ import { mountStreamableMcp } from "./mcp/streamable-http.js";
  * up a real network listener; `src/index.ts` is the only place that binds to
  * `process.env.PORT` via `@hono/node-server`.
  */
-export function createApp(): Hono {
+export function createApp(options?: CreateAppOptions): Hono {
+  const oauthIssuerBaseUrl = options?.oauthIssuerBaseUrl ?? DEFAULT_OAUTH_ISSUER_BASE_URL;
+  const oauthMetadata = buildAuthorizationServerMetadata(oauthIssuerBaseUrl);
+
   const app = new Hono();
   const logger = createLogger();
 
@@ -47,17 +59,7 @@ export function createApp(): Hono {
 
   mountStreamableMcp(app);
 
-  app.get("/.well-known/oauth-authorization-server", (c) =>
-    c.json({
-      issuer: "https://example.invalid",
-      authorization_endpoint: "https://example.invalid/oauth/authorize",
-      token_endpoint: "https://example.invalid/oauth/token",
-      jwks_uri: "https://example.invalid/.well-known/jwks.json",
-      response_types_supported: ["code"],
-      subject_types_supported: ["public"],
-      id_token_signing_alg_values_supported: ["RS256"],
-    }),
-  );
+  app.get("/.well-known/oauth-authorization-server", (c) => c.json(oauthMetadata));
 
   // Release / load-balancer smoke only — not a full MCP tools/list transport.
   app.get("/__smoke/mcp-tools-list", (c) =>

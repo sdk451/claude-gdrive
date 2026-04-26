@@ -15,6 +15,11 @@ export type BootEnv = {
   readonly googleClientSecret: string;
   /** Normalized to lowercase hex. */
   readonly sessionSecretHex: string;
+  /**
+   * Issuer origin for `/.well-known/oauth-authorization-server` (RFC 8414).
+   * From `PUBLIC_ISSUER_URL` or `http://127.0.0.1:${PORT}` when unset.
+   */
+  readonly publicIssuerOrigin: string;
 };
 
 export type ParseBootEnvResult =
@@ -23,6 +28,21 @@ export type ParseBootEnvResult =
 
 function trimOrEmpty(v: string | undefined): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+function resolvePublicIssuerOrigin(
+  env: NodeJS.ProcessEnv,
+): { ok: true; value: string } | { ok: false } {
+  const explicit = trimOrEmpty(env.PUBLIC_ISSUER_URL);
+  const port = trimOrEmpty(env.PORT) || "3000";
+  const raw = explicit || `http://127.0.0.1:${port}`;
+  try {
+    const u = new URL(raw);
+    const normalized = u.href.replace(/\/+$/, "");
+    return { ok: true, value: normalized };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /**
@@ -55,12 +75,21 @@ export function parseBootEnv(env: NodeJS.ProcessEnv = process.env): ParseBootEnv
     };
   }
 
+  const issuer = resolvePublicIssuerOrigin(env);
+  if (!issuer.ok) {
+    return {
+      ok: false,
+      message: `PUBLIC_ISSUER_URL (or derived fallback from PORT) must be a valid URL. See ${ENV_EXAMPLE_FILE}.`,
+    };
+  }
+
   return {
     ok: true,
     value: {
       googleClientId,
       googleClientSecret,
       sessionSecretHex: sessionRaw.toLowerCase(),
+      publicIssuerOrigin: issuer.value,
     },
   };
 }

@@ -1,0 +1,3 @@
+tests/unit/oauth-authorization-server-metadata.test.ts
+tests/unit/server.test.ts
+tests/unit/boot-env.test.ts
