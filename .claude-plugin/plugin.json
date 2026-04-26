@@ -1,0 +1,7 @@
+{
+  "id": "app.tokenomik.gdrive-cowork-connector",
+  "name": "Google Drive (Reliable)",
+  "description": "Self-hosted remote MCP connector for Google Drive — pair with your deployed server URL in .mcp.json.",
+  "version": "0.0.0",
+  "author": "Tokenomik"
+}

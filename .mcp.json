@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gdrive": {
+      "type": "http",
+      "url": "https://your-server.example.com/mcp"
+    }
+  }
+}
