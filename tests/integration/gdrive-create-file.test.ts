@@ -95,6 +95,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async updateFile() {
         throw new Error("updateFile not used in this test");
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -178,6 +181,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async updateFile() {
         throw new Error("updateFile not used in this test");
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -250,6 +256,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       },
       async updateFile() {
         throw new Error("updateFile not used in this test");
+      },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
       },
     };
 

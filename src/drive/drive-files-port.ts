@@ -110,6 +110,17 @@ export type UpdateFileParams = {
 
 export type UpdateFileResult = CreateFileResult;
 
+/** `files.update` with `addParents` / `removeParents` query parameters. */
+export type MoveFileParams = {
+  fileId: string;
+  /** Drive `addParents` — folder `fileId` to attach (comma-separated in API; single id here). */
+  addParentFolderId: string;
+  /** Drive `removeParents` — folder `fileId` to detach (use `root` for My Drive root when applicable). */
+  removeParentFolderId: string;
+};
+
+export type MoveFileResult = CreateFileResult;
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
@@ -119,4 +130,5 @@ export interface DriveFilesPort {
   listFilePermissions(params: ListFilePermissionsParams): Promise<ListFilePermissionsResult>;
   createFile(params: CreateFileParams): Promise<CreateFileResult>;
   updateFile(params: UpdateFileParams): Promise<UpdateFileResult>;
+  moveFile(params: MoveFileParams): Promise<MoveFileResult>;
 }

@@ -93,6 +93,9 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
       async updateFile() {
         throw new Error("updateFile not used in this test");
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
