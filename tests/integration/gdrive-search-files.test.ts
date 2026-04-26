@@ -85,6 +85,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
       },
+      async listFilePermissions() {
+        throw new Error("listFilePermissions not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

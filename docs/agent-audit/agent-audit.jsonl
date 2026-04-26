@@ -122,3 +122,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:05:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-26"},"context":{"branch":"TOK-26/s01-get-file-metadata"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:05:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-26"},"context":{"branch":"TOK-26/s01-get-file-metadata"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:05:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-26"},"context":{"branch":"TOK-26/s01-get-file-metadata"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:02:30.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-27"},"context":{"branch":"TOK-27/s01-get-file-permissions"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:02:35.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-27"},"context":{"branch":"TOK-27/s01-get-file-permissions"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:02:40.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-27"},"context":{"branch":"TOK-27/s01-get-file-permissions"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T13:02:45.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-27"},"context":{"branch":"TOK-27/s01-get-file-permissions"}}

@@ -1,0 +1,3 @@
+tests/contract/mcp-tool-registry.test.ts
+tests/contract/mcp-get-file-permissions-schema.test.ts
+tests/integration/gdrive-get-file-permissions.test.ts

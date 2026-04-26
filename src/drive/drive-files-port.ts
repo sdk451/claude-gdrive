@@ -61,10 +61,31 @@ export type FileMetadataResult = {
   owners?: FileMetadataOwner[];
 };
 
+export type ListFilePermissionsParams = {
+  fileId: string;
+  pageSize?: number;
+  pageToken?: string;
+};
+
+/** Subset of Drive `Permission` (no `emailAddress` in mapped output). */
+export type FilePermissionRef = {
+  id: string;
+  type: string;
+  role: string;
+  displayName?: string;
+  domain?: string;
+};
+
+export type ListFilePermissionsResult = {
+  permissions: FilePermissionRef[];
+  nextPageToken?: string;
+};
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
   downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
   getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
+  listFilePermissions(params: ListFilePermissionsParams): Promise<ListFilePermissionsResult>;
 }
