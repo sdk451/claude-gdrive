@@ -12,6 +12,13 @@ Append-only. Latest entry on top. Each entry follows:
 
 ---
 
+## 2026-04-26T12:00:00Z — step-10-readiness — tess+plat
+
+- Status: complete
+- Decision: PASS
+- Significant: yes
+- Notes: Inline criteria in `docs/autonomous-swe-kit/docs/workflows/0-onboarding/project-onboarding/steps/step-10-readiness.md` marked complete with evidence; optional Sentry probe at `GET /__smoke/sentry-test`; Linear TOK-5 comment + TOK-18 → Todo per TOK-15.
+
 ## 2026-04-25 — bootstrap-onboarding-kit — orchestrator
 
 - Status: complete

@@ -38,6 +38,10 @@ date: 2026-04
 - **Sampled:** 100% of errors and warnings; performance traces sampled at 10% in prod, 100% in staging.
 - **Scrubbing:** Sentry's default PII scrubbing plus a custom `beforeSend` hook that drops any event whose payload matches the redaction list above.
 
+### Readiness smoke (`GET /__smoke/sentry-test`)
+
+After staging deploy, with `SENTRY_DSN` set on the service, call this route once. The handler returns JSON `{"status":"sent"}` when a one-shot `captureMessage` + `flush` ran; `{"status":"skipped","reason":"SENTRY_DSN not set"}` when the variable is absent (expected in local dev). The SDK is only loaded when the DSN is non-empty.
+
 ## Tracing
 
 - Optional in v1; OpenTelemetry SDK left in place behind a feature flag (`OTEL_ENABLED=true`) so a future Epic can turn it on without surgery. When on, traces export to Cloud Trace via the OTLP exporter.
