@@ -72,6 +72,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async listFiles() {
         return { files: [] };
       },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
+      },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },
@@ -165,6 +168,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async listFiles() {
         return { files: [] };
       },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
+      },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },
@@ -244,6 +250,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
     const stub: DriveFilesPort = {
       async listFiles() {
         return { files: [] };
+      },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
       },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");

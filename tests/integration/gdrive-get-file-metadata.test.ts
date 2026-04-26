@@ -66,6 +66,9 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
       async listFiles() {
         return { files: [] };
       },
+      async listFolder() {
+        throw new Error("listFolder not used in this test");
+      },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
       },

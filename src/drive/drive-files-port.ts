@@ -19,6 +19,13 @@ export type ListFilesResult = {
   nextPageToken?: string;
 };
 
+/** Children of a folder via `files.list` (`'<folderId>' in parents and trashed = false`). */
+export type ListFolderParams = {
+  folderId: string;
+  pageSize?: number;
+  pageToken?: string;
+};
+
 /** `files.export` (Workspace) when `exportMimeType` is set; else `files.get` with `alt=media`. */
 export type ReadFileContentParams = {
   fileId: string;
@@ -161,6 +168,7 @@ export type ShareFileResult = ShareFileGrantResult | ShareFileRevokeResult;
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
+  listFolder(params: ListFolderParams): Promise<ListFilesResult>;
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
   downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
   getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
