@@ -35,6 +35,17 @@ The source of truth is JSON Lines (JSONL).
     "ref": "TOK-9/s04-secrets-config",
     "sha": "0123456789abcdef..."
   },
+  "acceptanceCriteria": {
+    "source": "linear",
+    "url": "https://linear.app/tokenomik/issue/TOK-9",
+    "items": [
+      {
+        "id": "AC1",
+        "text": "…",
+        "fragment": "…"
+      }
+    ]
+  },
   "tiers": {
     "unit": [
       {
@@ -66,6 +77,7 @@ The source of truth is JSON Lines (JSONL).
 
 - `tiers.unit` is derived from `reports/vitest-unit.json`.
 - `tiers.targeted` is derived from the story targets file (`docs/tests/<STORY>-targets.txt`).
+- `acceptanceCriteria` prefers Linear description fragments when provided (optional env/file), otherwise falls back to AC bullets extracted from `docs/backlog.md` using the story code (e.g. `S0.4`) inferred from the story design frontmatter.
 - Empty tiers exist so tooling can rely on a stable shape even before those runners are introduced.
 
 ## How it’s generated

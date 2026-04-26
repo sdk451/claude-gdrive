@@ -50,6 +50,32 @@ describe("write-test-result-summary.mjs (test-run-record.json)", () => {
       "utf8",
     );
 
+    // Backlog fallback AC bullets (Linear fragments are not available in CI by default).
+    const docsDir = join(dir, "docs");
+    mkdirSync(docsDir, { recursive: true });
+    writeFileSync(
+      join(docsDir, "backlog.md"),
+      [
+        "## Epic 0 — Foundation (mandatory)",
+        "",
+        "### S0.4 — Secrets & config management",
+        "",
+        "- AC1: first criterion",
+        "- AC2: second criterion",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    // Design doc is used to infer story code (S0.4) for backlog fallback.
+    const designsDir = join(docsDir, "designs");
+    mkdirSync(designsDir, { recursive: true });
+    writeFileSync(
+      join(designsDir, "TOK-123.md"),
+      ["---", "story: TOK-123", "title: S0.4 — Secrets & config management", "---", ""].join("\n"),
+      "utf8",
+    );
+
     // Add a targeted log that indicates green.
     writeFileSync(
       join(reportsDir, "targeted-tests.log"),
@@ -86,6 +112,10 @@ describe("write-test-result-summary.mjs (test-run-record.json)", () => {
     expect(rec.links.pullRequest).toBe("https://github.com/org/repo/pull/3");
     expect(rec.links.actionsRun).toBe("https://github.com/org/repo/actions/runs/999");
     expect(rec.links.actionsJob).toBe("validate");
+    expect(rec.acceptanceCriteria.source).toBe("backlog");
+    expect(rec.acceptanceCriteria.storyCode).toBe("S0.4");
+    expect(rec.acceptanceCriteria.items.length).toBe(2);
+    expect(rec.acceptanceCriteria.items[0].id).toBe("AC1");
     expect(rec.tiers.unit.length).toBeGreaterThan(0);
     expect(rec.tiers.targeted.length).toBeGreaterThan(0);
     expect(rec.tiers.targeted[0].status).toBe("passed");

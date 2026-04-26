@@ -104,6 +104,7 @@ lines.push(`| **Vitest JUnit** | \`reports/vitest-unit-junit.xml\` (CI tools) |`
 lines.push(``);
 
 const tiered = buildTieredTests({ vitest, storyId });
+const acceptanceCriteria = resolveAcceptanceCriteria({ storyId, designDoc, linearIssueUrl });
 const record = buildTestRunRecord({
   event,
   storyId,
@@ -120,6 +121,7 @@ const record = buildTestRunRecord({
   linearIssueUrl,
   designDoc,
   targetsFile,
+  acceptanceCriteria,
   tiers: tiered,
 });
 
@@ -299,6 +301,7 @@ function buildTestRunRecord({
   linearIssueUrl,
   designDoc,
   targetsFile,
+  acceptanceCriteria,
   tiers,
 }) {
   const actionsRun =
@@ -322,6 +325,7 @@ function buildTestRunRecord({
         workflow,
       },
     },
+    acceptanceCriteria,
     git: {
       repository: repo,
       ref: headRef,
@@ -329,4 +333,145 @@ function buildTestRunRecord({
     },
     tiers,
   };
+}
+
+function resolveAcceptanceCriteria({ storyId, designDoc, linearIssueUrl }) {
+  // Prefer Linear description fragments when explicitly provided (CI cannot call Linear).
+  // Supported inputs:
+  // - env.LINEAR_ISSUE_DESCRIPTION (raw markdown/plaintext)
+  // - reports/linear-issue.json { url, description }
+  const fromLinear = tryParseLinearAcceptanceCriteria({ storyId, linearIssueUrl });
+  if (fromLinear.items.length > 0) return fromLinear;
+
+  // Fallback: extract AC bullets from docs/backlog.md via story code (e.g. S0.4),
+  // inferred from docs/designs/<storyId>.md frontmatter `title: S0.4 — ...`.
+  const storyCode = inferStoryCodeFromDesign(designDoc);
+  const fromBacklog = storyCode ? tryParseBacklogAcceptanceCriteria(storyCode) : null;
+  if (fromBacklog && fromBacklog.items.length > 0) return fromBacklog;
+
+  return {
+    source: "none",
+    storyCode,
+    url: "",
+    items: [],
+  };
+}
+
+function tryParseLinearAcceptanceCriteria({ storyId, linearIssueUrl }) {
+  const candidates = [];
+  if (process.env.LINEAR_ISSUE_DESCRIPTION) {
+    candidates.push({
+      url: process.env.LINEAR_ISSUE_URL || linearIssueUrl || "",
+      description: process.env.LINEAR_ISSUE_DESCRIPTION,
+      source: "env",
+    });
+  }
+
+  const p = join(process.cwd(), "reports", "linear-issue.json");
+  if (existsSync(p)) {
+    try {
+      const obj = JSON.parse(readFileSync(p, "utf8"));
+      candidates.push({
+        url: String(obj?.url ?? linearIssueUrl ?? ""),
+        description: String(obj?.description ?? ""),
+        source: "reports/linear-issue.json",
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const c of candidates) {
+    const items = extractAcLines(c.description);
+    if (items.length > 0) {
+      return {
+        source: "linear",
+        storyCode: "",
+        url: c.url,
+        storyId,
+        items: items.map((text, idx) => ({
+          id: `AC${idx + 1}`,
+          text,
+          fragment: makeFragment(text),
+        })),
+      };
+    }
+  }
+
+  return { source: "linear", storyCode: "", url: linearIssueUrl || "", storyId, items: [] };
+}
+
+function inferStoryCodeFromDesign(designDocPath) {
+  try {
+    if (!designDocPath) return "";
+    const abs = join(process.cwd(), designDocPath);
+    if (!existsSync(abs)) return "";
+    const body = readFileSync(abs, "utf8");
+    const m = body.match(/^\s*title:\s*(S\d+\.\d+)\b/m);
+    return m ? m[1] : "";
+  } catch {
+    return "";
+  }
+}
+
+function tryParseBacklogAcceptanceCriteria(storyCode) {
+  const backlogPath = join(process.cwd(), "docs", "backlog.md");
+  if (!existsSync(backlogPath)) return null;
+  const body = readFileSync(backlogPath, "utf8");
+  const lines = body.split(/\r?\n/);
+
+  let inSection = false;
+  let heading = "";
+  const items = [];
+  for (const line of lines) {
+    if (line.startsWith("### ")) {
+      if (inSection) break;
+      if (line.includes(`${storyCode} `) || line.includes(`${storyCode} —`)) {
+        inSection = true;
+        heading = line.trim();
+      }
+      continue;
+    }
+    if (!inSection) continue;
+    const t = line.trim();
+    const acMatch = t.match(/^-\s*(AC\d+):\s*(.+)$/);
+    if (acMatch) {
+      items.push({ id: acMatch[1], text: acMatch[2], fragment: makeFragment(acMatch[2]) });
+    }
+  }
+
+  return {
+    source: "backlog",
+    storyCode,
+    url: "docs/backlog.md",
+    heading,
+    items,
+  };
+}
+
+function extractAcLines(description) {
+  const out = [];
+  const lines = String(description || "").split(/\r?\n/);
+  let inAc = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^##\s+Acceptance\s+criteria/i.test(t) || /^##\s+Acceptance\s+Criteria/i.test(t)) {
+      inAc = true;
+      continue;
+    }
+    if (inAc && /^##\s+/.test(t)) break;
+    if (!inAc) continue;
+    const m = t.match(/^[-*]\s+(.+)$/);
+    if (m) out.push(m[1]);
+  }
+  return out;
+}
+
+function makeFragment(text) {
+  // Best-effort stable fragment for matching.
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .slice(0, 80);
 }
