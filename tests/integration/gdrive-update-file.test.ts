@@ -99,6 +99,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
         }
         return r;
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -184,6 +187,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
         calls.push(params);
         return { id: params.fileId, name: "blob.bin" };
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -256,6 +262,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       async updateFile() {
         throw new Error("updateFile should not be reached");
       },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
@@ -324,6 +333,9 @@ describe("TOK-30 update_file integration (stubbed Drive)", () => {
       },
       async updateFile() {
         throw new Error("updateFile should not be reached");
+      },
+      async moveFile() {
+        throw new Error("moveFile not used in this test");
       },
     };
 

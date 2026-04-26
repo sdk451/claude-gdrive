@@ -16,6 +16,8 @@ import type {
   ListFilePermissionsResult,
   ListFilesParams,
   ListFilesResult,
+  MoveFileParams,
+  MoveFileResult,
   ReadFileContentParams,
   ReadFileContentResult,
   UpdateFileParams,
@@ -489,6 +491,38 @@ export function createFetchDriveFilesPort(
           "Content-Type": `multipart/related; boundary=${boundary}`,
         },
         body,
+      });
+
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Drive API response");
+      }
+      return parseCreatedFile(data as Record<string, unknown>);
+    },
+
+    async moveFile(params: MoveFileParams): Promise<MoveFileResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}`);
+      u.searchParams.set("addParents", params.addParentFolderId);
+      u.searchParams.set("removeParents", params.removeParentFolderId);
+      u.searchParams.set("fields", CREATE_FILE_FIELDS);
+
+      const res = await fetchFn(u.href, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: "{}",
       });
 
       const data: unknown = await res.json().catch(() => null);

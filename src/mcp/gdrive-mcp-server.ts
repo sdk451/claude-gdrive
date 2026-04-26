@@ -8,6 +8,7 @@ import type {
   GetFileMetadataParams,
   ListFilePermissionsParams,
   ListFilesParams,
+  MoveFileParams,
   ReadFileContentParams,
   UpdateFileParams,
 } from "../drive/drive-files-port.js";
@@ -18,7 +19,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`, TOK-30 `update_file`, TOK-31 `move_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -417,6 +418,53 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive update failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "move_file",
+    {
+      title: "Move Drive file between folders",
+      description:
+        "Move a file or folder to another parent using Drive `files.update` query parameters `addParents` and `removeParents`. Supply the current parent folder id to remove and the destination folder id to add (use `root` for My Drive root when applicable).",
+      annotations: { destructiveHint: true },
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` of the file or folder to move."),
+        addParentFolderId: z
+          .string()
+          .min(1)
+          .describe("Destination parent folder `fileId` (Drive `addParents`)."),
+        removeParentFolderId: z
+          .string()
+          .min(1)
+          .describe(
+            "Parent folder `fileId` to remove from (Drive `removeParents`; often the folder the item is leaving).",
+          ),
+      },
+    },
+    async (args) => {
+      try {
+        const params: MoveFileParams = {
+          fileId: args.fileId,
+          addParentFolderId: args.addParentFolderId,
+          removeParentFolderId: args.removeParentFolderId,
+        };
+        const result = await driveFiles.moveFile(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive move failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

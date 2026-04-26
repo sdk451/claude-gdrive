@@ -37,7 +37,7 @@ async function openMcpSession(app: ReturnType<typeof createApp>) {
 }
 
 describe("MCP tool registry (TOK-19 / S1.2, Epic 2 + Epic 3 tools)", () => {
-  it("tools/list returns Epic 2 Drive tools through update_file (F-03)", async () => {
+  it("tools/list returns Epic 2 Drive tools through move_file (F-03)", async () => {
     const app = createApp();
     const { sessionId, negotiated } = await openMcpSession(app);
 
@@ -71,6 +71,7 @@ describe("MCP tool registry (TOK-19 / S1.2, Epic 2 + Epic 3 tools)", () => {
     expect(names).toContain("get_file_permissions");
     expect(names).toContain("create_file");
     expect(names).toContain("update_file");
+    expect(names).toContain("move_file");
   });
 
   it("tools/call for unknown tool returns text-first structured error (isError)", async () => {
