@@ -1,6 +1,6 @@
-import type { RedactOptions } from "pino";
+import type { LoggerOptions } from "pino";
 
-export function createRedaction(): RedactOptions {
+export function createRedaction(): NonNullable<LoggerOptions["redact"]> {
   return {
     censor: "[redacted]",
     remove: false,
