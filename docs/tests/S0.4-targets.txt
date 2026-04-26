@@ -1,0 +1,2 @@
+# Targeted tests for S0.4 — Secrets & config management (alias of TOK-9)
+unit: tests/unit/boot-env.test.ts
