@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_NEGOTIATED_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 
-import type { DriveFilesPort, GetFileMetadataParams } from "../../src/drive/drive-files-port.js";
+import type {
+  DriveFilesPort,
+  ListFilePermissionsParams,
+} from "../../src/drive/drive-files-port.js";
 import { createApp } from "../../src/server.js";
 
 const MCP_POST_ACCEPT = "application/json, text/event-stream";
@@ -15,13 +18,13 @@ function initializeBody(id: number | string) {
     params: {
       protocolVersion: DEFAULT_NEGOTIATED_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "vitest-get-metadata", version: "0.0.0" },
+      clientInfo: { name: "vitest-get-permissions", version: "0.0.0" },
     },
   };
 }
 
-describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
-  it("tools/call get_file_metadata without stub returns isError (no token yet)", async () => {
+describe("TOK-27 get_file_permissions integration (stubbed Drive)", () => {
+  it("tools/call get_file_permissions without stub returns isError (no token yet)", async () => {
     const app = createApp();
 
     const initRes = await app.request("http://localhost/mcp", {
@@ -30,7 +33,7 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-26-no-token")),
+      body: JSON.stringify(initializeBody("tok-27-no-token")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -47,9 +50,9 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 40,
+        id: 50,
         method: "tools/call",
-        params: { name: "get_file_metadata", arguments: { fileId: "meta-1" } },
+        params: { name: "get_file_permissions", arguments: { fileId: "f-1" } },
       }),
     });
     expect(callRes.status).toBe(200);
@@ -60,8 +63,8 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
     expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth|Complete OAuth/i);
   });
 
-  it("tools/call get_file_metadata forwards fileId to stub", async () => {
-    const calls: GetFileMetadataParams[] = [];
+  it("tools/call get_file_permissions forwards fileId and pageSize to stub", async () => {
+    const calls: ListFilePermissionsParams[] = [];
     const stub: DriveFilesPort = {
       async listFiles() {
         return { files: [] };
@@ -72,20 +75,18 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
       async downloadFileContent() {
         throw new Error("downloadFileContent not used in this test");
       },
-      async getFileMetadata(params) {
+      async getFileMetadata() {
+        throw new Error("getFileMetadata not used in this test");
+      },
+      async listFilePermissions(params) {
         calls.push(params);
         return {
-          id: "meta-1",
-          name: "Report.pdf",
-          mimeType: "application/pdf",
-          size: "1024",
-          modifiedTime: "2024-01-01T00:00:00.000Z",
-          shared: true,
-          owners: [{ displayName: "Ada Lovelace", permissionId: "owner" }],
+          permissions: [
+            { id: "p1", type: "user", role: "writer", displayName: "Bob" },
+            { id: "p2", type: "anyone", role: "reader" },
+          ],
+          nextPageToken: "tok-next",
         };
-      },
-      async listFilePermissions() {
-        throw new Error("listFilePermissions not used in this test");
       },
       async createFile() {
         throw new Error("createFile not used in this test");
@@ -100,7 +101,7 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-26-int")),
+      body: JSON.stringify(initializeBody("tok-27-int")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -117,9 +118,12 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 41,
+        id: 51,
         method: "tools/call",
-        params: { name: "get_file_metadata", arguments: { fileId: "meta-1" } },
+        params: {
+          name: "get_file_permissions",
+          arguments: { fileId: "doc-xyz", pageSize: 25 },
+        },
       }),
     });
     expect(callRes.status).toBe(200);
@@ -128,18 +132,15 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
     };
     expect(body.result?.isError).not.toBe(true);
     const parsed = JSON.parse(body.result?.content?.[0]?.text ?? "{}") as {
-      id: string;
-      name: string;
-      mimeType?: string;
-      shared?: boolean;
-      owners?: Array<{ displayName?: string }>;
+      permissions: Array<{ id: string; type: string; role: string }>;
+      nextPageToken?: string;
     };
-    expect(parsed.name).toBe("Report.pdf");
-    expect(parsed.mimeType).toBe("application/pdf");
-    expect(parsed.shared).toBe(true);
-    expect(parsed.owners?.[0]?.displayName).toBe("Ada Lovelace");
+    expect(parsed.permissions).toHaveLength(2);
+    expect(parsed.permissions[0]?.role).toBe("writer");
+    expect(parsed.nextPageToken).toBe("tok-next");
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.fileId).toBe("meta-1");
+    expect(calls[0]?.fileId).toBe("doc-xyz");
+    expect(calls[0]?.pageSize).toBe(25);
   });
 });

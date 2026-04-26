@@ -10,7 +10,10 @@ import type {
   DownloadFileContentResult,
   FileMetadataOwner,
   FileMetadataResult,
+  FilePermissionRef,
   GetFileMetadataParams,
+  ListFilePermissionsParams,
+  ListFilePermissionsResult,
   ListFilesParams,
   ListFilesResult,
   ReadFileContentParams,
@@ -38,6 +41,30 @@ function isTextualMime(mime: string, exportMimeType: string | undefined): boolea
 
 const FILE_METADATA_FIELDS =
   "id,name,mimeType,size,modifiedTime,shared,owners(displayName,permissionId)";
+
+const FILE_PERMISSIONS_LIST_FIELDS = "nextPageToken,permissions(id,type,role,domain,displayName)";
+
+function parsePermissionRow(row: Record<string, unknown>): FilePermissionRef {
+  const ref: FilePermissionRef = {
+    id: String(row.id ?? ""),
+    type: String(row.type ?? ""),
+    role: String(row.role ?? ""),
+  };
+  if (typeof row.displayName === "string") {
+    ref.displayName = row.displayName;
+  }
+  if (typeof row.domain === "string") {
+    ref.domain = row.domain;
+  }
+  return ref;
+}
+
+function parseListFilePermissions(data: Record<string, unknown>): ListFilePermissionsResult {
+  const permsRaw = Array.isArray(data.permissions) ? data.permissions : [];
+  const permissions = permsRaw.map((raw) => parsePermissionRow(raw as Record<string, unknown>));
+  const nextPageToken = typeof data.nextPageToken === "string" ? data.nextPageToken : undefined;
+  return nextPageToken ? { permissions, nextPageToken } : { permissions };
+}
 
 function parseFileMetadata(data: Record<string, unknown>): FileMetadataResult {
   const id = String(data.id ?? "");
@@ -270,6 +297,39 @@ export function createFetchDriveFilesPort(
         throw new Error("Invalid Drive API response");
       }
       return parseFileMetadata(data as Record<string, unknown>);
+    },
+
+    async listFilePermissions(
+      params: ListFilePermissionsParams,
+    ): Promise<ListFilePermissionsResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}/permissions`);
+      u.searchParams.set("fields", FILE_PERMISSIONS_LIST_FIELDS);
+      if (params.pageSize != null) {
+        u.searchParams.set("pageSize", String(params.pageSize));
+      }
+      if (params.pageToken) {
+        u.searchParams.set("pageToken", params.pageToken);
+      }
+
+      const res = await fetchFn(u.href, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Drive API response");
+      }
+      return parseListFilePermissions(data as Record<string, unknown>);
     },
 
     async createFile(params: CreateFileParams): Promise<CreateFileResult> {

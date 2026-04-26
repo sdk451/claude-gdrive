@@ -6,6 +6,7 @@ import type {
   DriveFilesPort,
   DownloadFileContentParams,
   GetFileMetadataParams,
+  ListFilePermissionsParams,
   ListFilesParams,
   ReadFileContentParams,
 } from "../drive/drive-files-port.js";
@@ -16,7 +17,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-28 `create_file`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-27 `get_file_permissions`, TOK-28 `create_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -183,6 +184,55 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive metadata failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_file_permissions",
+    {
+      title: "List Drive file permissions",
+      description:
+        "List sharing ACL entries for a file via Drive `permissions.list` (id, type, role, display name, domain). Pagination optional.",
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` from search results or URLs."),
+        pageSize: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum permission rows per page (Drive default if omitted)."),
+        pageToken: z
+          .string()
+          .optional()
+          .describe("Pagination token from a previous `get_file_permissions` response."),
+      },
+    },
+    async (args) => {
+      try {
+        const params: ListFilePermissionsParams = { fileId: args.fileId };
+        if (args.pageSize !== undefined) {
+          params.pageSize = args.pageSize;
+        }
+        if (args.pageToken !== undefined) {
+          params.pageToken = args.pageToken;
+        }
+        const result = await driveFiles.listFilePermissions(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive permissions failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

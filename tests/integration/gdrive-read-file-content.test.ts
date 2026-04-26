@@ -80,6 +80,9 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
       },
+      async listFilePermissions() {
+        throw new Error("listFilePermissions not used in this test");
+      },
       async createFile() {
         throw new Error("createFile not used in this test");
       },

@@ -61,6 +61,26 @@ export type FileMetadataResult = {
   owners?: FileMetadataOwner[];
 };
 
+export type ListFilePermissionsParams = {
+  fileId: string;
+  pageSize?: number;
+  pageToken?: string;
+};
+
+/** Subset of Drive `Permission` (no `emailAddress` in mapped output). */
+export type FilePermissionRef = {
+  id: string;
+  type: string;
+  role: string;
+  displayName?: string;
+  domain?: string;
+};
+
+export type ListFilePermissionsResult = {
+  permissions: FilePermissionRef[];
+  nextPageToken?: string;
+};
+
 export type CreateFileParams = {
   name: string;
   /** Target file MIME (e.g. `application/vnd.google-apps.folder`, `application/vnd.google-apps.document`). */
@@ -84,5 +104,6 @@ export interface DriveFilesPort {
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
   downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
   getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
+  listFilePermissions(params: ListFilePermissionsParams): Promise<ListFilePermissionsResult>;
   createFile(params: CreateFileParams): Promise<CreateFileResult>;
 }

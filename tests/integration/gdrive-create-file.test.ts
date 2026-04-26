@@ -81,6 +81,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
       },
+      async listFilePermissions() {
+        throw new Error("listFilePermissions not used in this test");
+      },
       async createFile(params) {
         calls.push(params);
         return {
@@ -162,6 +165,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
       },
+      async listFilePermissions() {
+        throw new Error("listFilePermissions not used in this test");
+      },
       async createFile(params) {
         calls.push(params);
         return { id: "blob-1", name: params.name, mimeType: params.mimeType };
@@ -229,6 +235,9 @@ describe("TOK-28 create_file integration (stubbed Drive)", () => {
       },
       async getFileMetadata() {
         throw new Error("getFileMetadata not used in this test");
+      },
+      async listFilePermissions() {
+        throw new Error("listFilePermissions not used in this test");
       },
       async createFile() {
         return { id: "x", name: "x" };
