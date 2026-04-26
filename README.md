@@ -33,6 +33,11 @@ curl -fsS "$ORIGIN/.well-known/oauth-authorization-server" | head
 
 After deploy, **`release.yml`** also exercises **`/__smoke/mcp-tools-list`** against prod when you cut a tag (see **Prod release** below).
 
+### Latency SLO (NF-02 / S5.2)
+
+- **Dashboard:** import **`infra/observability/latency-dashboard.json`** into Cloud Monitoring (steps in **`infra/observability/README.md`**).
+- **Staging load gate:** with the service reachable, run `node scripts/synthetic-mcp-latency.mjs` (defaults: 100 RPS for 30 s, `LOAD_TEST_BASE_URL` override). Exit code **1** means client-side **p95 > 3 s** — investigate before promoting.
+
 ### 4. Plugin bundle for Cowork (P-05)
 
 The expected **file-only** layout (`.claude-plugin/plugin.json`, **`.mcp.json`**, `skills/`, optional `commands/`) is documented under **Expected plugin bundle layout** in [`docs/architecture.md`](docs/architecture.md).
