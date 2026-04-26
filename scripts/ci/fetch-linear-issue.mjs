@@ -9,7 +9,6 @@
  *   STORY_ID (e.g. TOK-9)
  *   LINEAR_API_KEY (secret)
  */
-/* global fetch */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
