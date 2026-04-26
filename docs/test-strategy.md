@@ -31,7 +31,7 @@ Mirrors `docs/environments.md` CI/CD section:
 - **PR validation** (`pr-validation.yml`): lint + typecheck + unit (**JSON + JUnit + Markdown summary**) + story **targeted** suite (resolved from branch name) + markdown lint. Uploads artifact `test-results-pr-<#>-<STORY>`. Required for merge.
 - **Main CI** (`ci.yml`): on every **push to `main`**, full default Vitest tree plus **all** `docs/tests/TOK-*-targets.txt` files (`scripts/ci/run-regression-story-targets.sh`), then **Docker build** (and **Artifact Registry push** when `GCP_*` secrets are set). Artifact `regression-main-<sha>` includes `MAIN_REGRESSION_SUMMARY.md`.
 - **Main CI / deploy** (`ci.yml`, future): full integration + container build + staging deploy + staging smoke (see `docs/environments.md`).
-- **Release** (`release.yml`): **`workflow_dispatch` placeholder** today — intended prod promotion + smoke; full “promote → regression → fix PR if red” train is described in [Testing artifacts & regression](testing-artifacts-and-regression.md#release-train-vision).
+- **Release** (`release.yml`): on **tag** `v*.*.*`, optional **prod promote** (digest of `GCP_ARTIFACT_REGISTRY:${GITHUB_SHA}`) + **prod smoke** when GCP secrets are set; full “promote → regression → fix PR if red” train vision remains in [Testing artifacts & regression](testing-artifacts-and-regression.md#release-train-vision).
 - **Nightly** (`nightly.yml`, optional): live-integration canary against a test Workspace; on failure it opens a Linear issue.
 - **Security** (`security.yml`): dependency / secret / container scans on PR and weekly.
 

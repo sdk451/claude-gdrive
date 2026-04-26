@@ -78,3 +78,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T03:20:30.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-13"},"context":{"branch":"TOK-13/s08-security-baseline"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T03:20:45.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-13"},"context":{"branch":"TOK-13/s08-security-baseline"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T03:24:55.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-13"},"context":{"branch":"TOK-13/s08-security-baseline"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T07:09:00.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-14"},"context":{"branch":"TOK-14/s01-production-deploy-gate"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T07:09:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-14"},"context":{"branch":"TOK-14/s01-production-deploy-gate"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T07:09:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-14"},"context":{"branch":"TOK-14/s01-production-deploy-gate"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T07:09:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-14"},"context":{"branch":"TOK-14/s01-production-deploy-gate"}}

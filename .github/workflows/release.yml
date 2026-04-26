@@ -1,39 +1,111 @@
-# Release train (skeleton). Full behaviour is specified in
-# docs/test-strategy.md § Release train and autonomous-swe-kit doc
-# docs/autonomous-swe-kit/docs/testing-artifacts-and-regression.md
+# Production release: promote the digest-tagged image built on main for this commit,
+# then run prod smoke checks. Mirrors ci.yml WIF + Artifact Registry conventions.
 #
-# Planned flow (not implemented here — needs deploy credentials + bot token):
-#   1. Promote main build to staging (image digest).
-#   2. Run full regression against staging (or reuse ci.yml regression artifact pattern).
-#   3. On failure: open a fix PR against main (automation/bot), re-run until green.
-#   4. On success: tag release, promote to prod per environments.md.
-#
-# Use workflow_dispatch until deploy + bot wiring exists.
+# Trigger: push a SemVer tag (including pre-releases), e.g. v0.1.0-rc1
+# Prereq: main CI must have pushed GCP_ARTIFACT_REGISTRY:${GITHUB_SHA} for the tagged commit.
 
 name: release
 
 on:
-  workflow_dispatch:
-    inputs:
-      note:
-        description: Optional note (ignored — placeholder workflow)
-        required: false
-        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  placeholder:
-    name: release placeholder
+  promote_prod:
+    name: promote digest to prod + smoke
     runs-on: ubuntu-latest
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCP_ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+      CLOUD_RUN_SERVICE_PROD: ${{ secrets.CLOUD_RUN_SERVICE_PROD }}
     steps:
-      - name: Checkout
+      - name: Checkout tag
         uses: actions/checkout@v6
 
-      - name: Explain next steps
+      - name: Gate (skip when GCP not configured)
+        id: gate
+        shell: bash
         run: |
-          echo "Release automation is not wired yet."
-          echo "See docs/test-strategy.md (Release train) and"
-          echo "docs/autonomous-swe-kit/docs/testing-artifacts-and-regression.md"
-          echo "for the intended promotion + regression + fix-PR loop."
+          set -euo pipefail
+          if [[ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER:-}" || -z "${GCP_SERVICE_ACCOUNT:-}" || -z "${GCP_PROJECT_ID:-}" || -z "${GCP_REGION:-}" || -z "${GCP_ARTIFACT_REGISTRY:-}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Release skipped: set GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT, GCP_PROJECT_ID, GCP_REGION, and GCP_ARTIFACT_REGISTRY to promote the tagged commit image to prod."
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: steps.gate.outputs.skip == 'false'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install gcloud SDK
+        if: steps.gate.outputs.skip == 'false'
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.gate.outputs.skip == 'false'
+        shell: bash
+        env:
+          GCP_ARTIFACT_REGISTRY: ${{ env.GCP_ARTIFACT_REGISTRY }}
+        run: |
+          set -euo pipefail
+          host="${GCP_ARTIFACT_REGISTRY%%/*}"
+          gcloud auth configure-docker "$host" -q
+
+      - name: Resolve image digest for tagged commit
+        if: steps.gate.outputs.skip == 'false'
+        id: image
+        shell: bash
+        env:
+          GCP_ARTIFACT_REGISTRY: ${{ env.GCP_ARTIFACT_REGISTRY }}
+        run: |
+          set -euo pipefail
+          tag_ref="${GCP_ARTIFACT_REGISTRY}:${GITHUB_SHA}"
+          docker pull "$tag_ref"
+          digest="$(docker inspect --format='{{index .RepoDigests 0}}' "$tag_ref")"
+          echo "image_ref=${digest}" >> "$GITHUB_OUTPUT"
+          echo "Resolved prod image: ${digest}"
+
+      - name: Deploy to Cloud Run (prod)
+        if: steps.gate.outputs.skip == 'false'
+        shell: bash
+        env:
+          SERVICE: ${{ env.CLOUD_RUN_SERVICE_PROD }}
+          REGION: ${{ env.GCP_REGION }}
+          PROJECT: ${{ env.GCP_PROJECT_ID }}
+          IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+        run: |
+          set -euo pipefail
+          svc="${SERVICE:-gdrive-mcp}"
+          gcloud run deploy "$svc" --region "$REGION" --project "$PROJECT" --image "$IMAGE_REF" --quiet
+
+      - name: Smoke test prod URL
+        if: steps.gate.outputs.skip == 'false'
+        shell: bash
+        env:
+          SERVICE: ${{ env.CLOUD_RUN_SERVICE_PROD }}
+          REGION: ${{ env.GCP_REGION }}
+          PROJECT: ${{ env.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          svc="${SERVICE:-gdrive-mcp}"
+          url="$(gcloud run services describe "$svc" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"
+          echo "Prod URL: ${url}"
+          curl -fsS "${url}/healthz" >/dev/null
+          curl -fsS "${url}/.well-known/oauth-authorization-server" >/dev/null
+          curl -fsS "${url}/__smoke/mcp-tools-list" >/dev/null
