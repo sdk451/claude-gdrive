@@ -34,6 +34,52 @@ try {
   input = "";
 }
 
+function safeAppendAudit(line) {
+  try {
+    const outDir = path.resolve(process.cwd(), "docs", "agent-audit");
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, "agent-audit.jsonl");
+    fs.appendFileSync(outPath, line + "\n", "utf8");
+  } catch {
+    // Never break hooks because audit logging failed.
+  }
+}
+
+function inferPhaseFromInput(raw) {
+  try {
+    const obj = JSON.parse(String(raw || ""));
+    // Cursor hook payloads vary; try multiple common keys.
+    return (
+      obj?.hook_event ||
+      obj?.hookEvent ||
+      obj?.event ||
+      obj?.hook?.event ||
+      obj?.hook?.name ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+const branchName = (() => {
+  try {
+    const res = spawnSync("git", ["branch", "--show-current"], {
+      encoding: "utf8",
+      windowsHide: true,
+      env: process.env,
+      cwd: process.cwd(),
+      maxBuffer: 1024 * 1024,
+    });
+    return String(res.stdout || "").trim();
+  } catch {
+    return "";
+  }
+})();
+
+const storyMatch = branchName.match(/([A-Z]+-\d+)/);
+const storyId = storyMatch ? storyMatch[1] : "";
+
 const isWin = process.platform === "win32";
 
 function findBash() {
@@ -73,6 +119,25 @@ if (res.stdout) {
 if (res.stderr) {
   process.stderr.write(res.stderr);
 }
+
+safeAppendAudit(
+  JSON.stringify({
+    schema: "gdrive.agentAudit.v1",
+    timestamp: new Date().toISOString(),
+    kind: "hook",
+    hook: {
+      script: path.relative(process.cwd(), scriptPath).replace(/\\/g, "/"),
+      runner: ".cursor/hooks/run-hook.cjs",
+      phase: inferPhaseFromInput(input),
+      exitCode: res.status === null ? 1 : res.status,
+    },
+    context: {
+      cwd: process.cwd().replace(/\\/g, "/"),
+      storyId,
+      branch: branchName,
+    },
+  }),
+);
 
 const code = res.status === null ? 1 : res.status;
 process.exit(code);

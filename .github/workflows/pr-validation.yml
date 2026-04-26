@@ -100,6 +100,11 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/ci/write-test-result-summary.mjs
 
+      - name: Append run record (JSONL)
+        if: always()
+        shell: bash
+        run: node scripts/ci/append-test-run-log.mjs
+
       - name: Upload test reports artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,7 +112,9 @@ jobs:
           name: test-results-pr-${{ github.event.pull_request.number }}-${{ steps.story.outputs.story_id }}
           path: |
             reports/STORY_TEST_SUMMARY.md
+            reports/test-run-record.json
             reports/vitest-unit.json
             reports/vitest-unit-junit.xml
             reports/targeted-tests.log
+            docs/test-runs/test-runs.jsonl
           if-no-files-found: warn
