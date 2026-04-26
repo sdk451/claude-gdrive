@@ -17,7 +17,7 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT value: ${process.env.PORT}`);
 }
 
-const app = createApp();
+const app = createApp({ oauthIssuerBaseUrl: boot.value.publicIssuerOrigin });
 const logger = createLogger();
 
 serve({ fetch: app.fetch, port }, (info) => {

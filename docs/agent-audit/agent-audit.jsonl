@@ -94,3 +94,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T08:09:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-19"},"context":{"branch":"TOK-19/s01-tool-registry-plumbing"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T08:09:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-19"},"context":{"branch":"TOK-19/s01-tool-registry-plumbing"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T08:09:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-19"},"context":{"branch":"TOK-19/s01-tool-registry-plumbing"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:00.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
