@@ -1,0 +1,2 @@
+# TOK-18 / S1.1 — Streamable HTTP transport
+unit: tests/contract/mcp-streamable-http.test.ts

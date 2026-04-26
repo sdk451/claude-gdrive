@@ -1,0 +1,2 @@
+# Alias for backlog id S1.1 — same as TOK-18-targets.txt
+unit: tests/contract/mcp-streamable-http.test.ts

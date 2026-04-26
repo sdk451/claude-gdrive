@@ -6,6 +6,7 @@ import {
   outcomeFromStatus,
 } from "./observability/logger.js";
 import { readinessSentryPing } from "./observability/sentry-readiness.js";
+import { mountStreamableMcp } from "./mcp/streamable-http.js";
 
 /**
  * Build a Hono app for the gdrive-cowork-connector MCP server.
@@ -43,6 +44,8 @@ export function createApp(): Hono {
   });
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
+
+  mountStreamableMcp(app);
 
   app.get("/.well-known/oauth-authorization-server", (c) =>
     c.json({
