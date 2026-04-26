@@ -6,6 +6,7 @@ import {
   outcomeFromStatus,
 } from "./observability/logger.js";
 import { readinessSentryPing } from "./observability/sentry-readiness.js";
+import type { DriveFilesPort } from "./drive/drive-files-port.js";
 import { mountStreamableMcp } from "./mcp/streamable-http.js";
 import {
   buildAuthorizationServerMetadata,
@@ -18,6 +19,8 @@ export type CreateAppOptions = {
   oauthIssuerBaseUrl?: string;
   /** When set, mounts DCR + OAuth authorize/callback/token (S1.4 / TOK-21). */
   oauth?: OauthRouteConfig;
+  /** Stub or fake Drive layer for tests; production uses default fetch port (token wiring F-10). */
+  driveFiles?: DriveFilesPort;
 };
 
 /**
@@ -60,7 +63,7 @@ export function createApp(options?: CreateAppOptions): Hono {
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
 
-  mountStreamableMcp(app);
+  mountStreamableMcp(app, options?.driveFiles ? { driveFiles: options.driveFiles } : undefined);
 
   app.get("/.well-known/oauth-authorization-server", (c) => c.json(oauthMetadata));
 
