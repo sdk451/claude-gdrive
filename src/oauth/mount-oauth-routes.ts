@@ -3,6 +3,11 @@ import type { Context, Hono } from "hono";
 import { normalizeIssuerBaseUrl } from "./authorization-server-metadata.js";
 import { signOAuthState, verifyOAuthState } from "./oauth-state.js";
 import { pkceS256Challenge } from "./pkce.js";
+import {
+  aesKeyFromSessionSecretHex,
+  decryptGoogleRefreshToken,
+  encryptGoogleRefreshToken,
+} from "./refresh-token-crypto.js";
 
 const DEFAULT_SCOPE = "openid email profile https://www.googleapis.com/auth/drive.file";
 
@@ -44,8 +49,20 @@ type IssuedCode = {
   google_scope: string;
 };
 
-function jsonError(c: Context, error: string, error_description: string) {
-  return c.json({ error, error_description }, 400);
+type RefreshSessionRecord = {
+  dcr_client_id: string;
+  encrypted_google_refresh: string;
+  google_scope: string;
+};
+
+function jsonError(
+  c: Context,
+  error: string,
+  error_description: string,
+  status: 400 | 500 = 400,
+  extra?: Record<string, unknown>,
+) {
+  return c.json({ error, error_description, ...extra }, status);
 }
 
 function isSafeRedirectUri(uri: string): boolean {
@@ -81,6 +98,8 @@ export function mountOauthRoutes(app: Hono, cfg: OauthRouteConfig): void {
   const dcrClients = new Map<string, DcrRecord>();
   const pendingByNonce = new Map<string, PendingGoogle>();
   const issuedByCode = new Map<string, IssuedCode>();
+  const refreshSessions = new Map<string, RefreshSessionRecord>();
+  const refreshKey = aesKeyFromSessionSecretHex(cfg.sessionSecretHex);
 
   app.post("/oauth/register", async (c) => {
     let body: unknown;
@@ -317,8 +336,93 @@ export function mountOauthRoutes(app: Hono, cfg: OauthRouteConfig): void {
     }
 
     const grant_type = raw.grant_type;
+
+    if (grant_type === "refresh_token") {
+      const refresh_handle = raw.refresh_token;
+      const client_id_rt = raw.client_id;
+      if (!refresh_handle || !client_id_rt) {
+        return jsonError(c, "invalid_request", "Missing refresh_token or client_id");
+      }
+      const sess = refreshSessions.get(refresh_handle);
+      if (!sess) {
+        return jsonError(c, "invalid_grant", "Unknown or revoked refresh_token");
+      }
+      if (sess.dcr_client_id !== client_id_rt) {
+        return jsonError(c, "invalid_grant", "client_id does not match refresh_token");
+      }
+
+      let googleRefresh: string;
+      try {
+        googleRefresh = decryptGoogleRefreshToken(sess.encrypted_google_refresh, refreshKey);
+      } catch {
+        return jsonError(c, "invalid_grant", "Stored refresh token could not be decrypted");
+      }
+
+      const googleBody = new URLSearchParams({
+        client_id: cfg.googleClientId,
+        client_secret: cfg.googleClientSecret,
+        grant_type: "refresh_token",
+        refresh_token: googleRefresh,
+      });
+
+      let tokenRes: Response;
+      try {
+        tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: googleBody.toString(),
+        });
+      } catch {
+        return jsonError(c, "server_error", "Token endpoint unreachable", 500);
+      }
+
+      const tokenJsonRt: unknown = await tokenRes.json().catch(() => null);
+      if (!tokenRes.ok || !tokenJsonRt || typeof tokenJsonRt !== "object") {
+        refreshSessions.delete(refresh_handle);
+        return jsonError(
+          c,
+          "invalid_grant",
+          "Google rejected the refresh token; re-authenticate via /oauth/authorize",
+          400,
+          { reauth_required: true },
+        );
+      }
+
+      const tr = tokenJsonRt as Record<string, unknown>;
+      const accessRt = typeof tr.access_token === "string" ? tr.access_token : "";
+      const newGoogleRefresh = typeof tr.refresh_token === "string" ? tr.refresh_token : undefined;
+      const expires_in_rt = typeof tr.expires_in === "number" ? tr.expires_in : 3600;
+      const token_type_rt = typeof tr.token_type === "string" ? tr.token_type : "Bearer";
+      if (!accessRt) {
+        refreshSessions.delete(refresh_handle);
+        return jsonError(
+          c,
+          "invalid_grant",
+          "Invalid token response from Google; re-authenticate via /oauth/authorize",
+          400,
+          { reauth_required: true },
+        );
+      }
+
+      if (newGoogleRefresh) {
+        sess.encrypted_google_refresh = encryptGoogleRefreshToken(newGoogleRefresh, refreshKey);
+      }
+
+      return c.json({
+        access_token: accessRt,
+        token_type: token_type_rt,
+        expires_in: expires_in_rt,
+        scope: typeof tr.scope === "string" ? tr.scope : sess.google_scope,
+        refresh_token: refresh_handle,
+      });
+    }
+
     if (grant_type !== "authorization_code") {
-      return jsonError(c, "unsupported_grant_type", "Only authorization_code is supported");
+      return jsonError(
+        c,
+        "unsupported_grant_type",
+        "Only authorization_code and refresh_token are supported",
+      );
     }
     const code = raw.code;
     const redirect_uri = raw.redirect_uri;
@@ -356,7 +460,13 @@ export function mountOauthRoutes(app: Hono, cfg: OauthRouteConfig): void {
       scope: rec.google_scope,
     };
     if (rec.google_refresh_token) {
-      payload.refresh_token = rec.google_refresh_token;
+      const handle = `ref_${randomBytes(24).toString("base64url")}`;
+      refreshSessions.set(handle, {
+        dcr_client_id: rec.dcr_client_id,
+        encrypted_google_refresh: encryptGoogleRefreshToken(rec.google_refresh_token, refreshKey),
+        google_scope: rec.google_scope,
+      });
+      payload.refresh_token = handle;
     }
     return c.json(payload);
   });

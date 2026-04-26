@@ -165,7 +165,8 @@ describe("TOK-21 DCR + PKCE onboarding", () => {
       token_type: string;
     };
     expect(tokens.access_token).toBe("google-access-test");
-    expect(tokens.refresh_token).toBe("google-refresh-test");
+    expect(tokens.refresh_token).toMatch(/^ref_/);
+    expect(tokens.refresh_token).not.toContain("google-refresh");
     expect(tokens.token_type).toBe("Bearer");
   });
 });
