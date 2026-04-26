@@ -98,7 +98,7 @@ All tools listed as "Free" are genuinely free forever for the scope described �
 5. `IMPLEMENTATION-GUIDE.md` (30 min) — the how; follow phase by phase
 6. Each persona as you reach the phase that uses it
 
-## What changed vs the previous revision
+## Revision 1.0 - What changed vs the previous revision
 
 This revision adds:
 
@@ -106,4 +106,12 @@ This revision adds:
 - **Path B (Pure Cursor)** — a full alternative implementation path for users who don't want Claude Code. Every phase and command now has Path A / Path B callouts.
 - **Rules 40 (Serena) and 41 (MemPalace)** — wired into every agent's always-on context.
 - **`diary-append.sh` hook** — appends timestamped markdown entries to `docs/diary/{YYYY-MM}/` on session start, tool use, and stop. Lives in your repo; survives any tool swap.
-- **Updated persona definitions** — the auto-diarising prompt is layered in via rule 41 rather than duplicated in every persona file, keeping personas lean.
+- **Updated persona definitions** — the auto-diarising prompt is layered in via rule 42 rather than duplicated in every persona file, keeping personas lean.
+
+## Revision 1.1  - What changed 
+
+This revision adds:
+
+- **Extend Test reporting to aid traceability**. — added to enable human review of how what tests were actually run and passed, provide traceability against requirements
+- **Add Agent and Rule / Hook invocation logging** — added to enable human review of how the autonomous swe kit is actually operating, aid in debugging etc.
+- **Updated persona definitions** — the auto-diarising prompt is layered in via rule 42 rather than duplicated in every persona file, keeping personas lean.
