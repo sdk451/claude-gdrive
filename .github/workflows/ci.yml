@@ -95,6 +95,8 @@ jobs:
     name: docker build (push to Artifact Registry when configured)
     needs: regression
     runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.push.outputs.image_ref }}
     permissions:
       contents: read
       id-token: write
@@ -104,6 +106,9 @@ jobs:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       GCP_ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      CLOUD_RUN_SERVICE_STAGING: ${{ secrets.CLOUD_RUN_SERVICE_STAGING }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -145,11 +150,73 @@ jobs:
           set -euo pipefail
           remote="${GCP_ARTIFACT_REGISTRY}:${GITHUB_SHA}"
           docker tag "$LOCAL_IMAGE" "$remote"
-          docker push "$remote"
+          out="$(docker push "$remote")"
+          echo "$out"
+          digest="$(echo "$out" | sed -n 's/^.*digest: \\(sha256:[a-f0-9]\\{64\\}\\).*$/\\1/p' | tail -n 1)"
+          if [[ -n "$digest" ]]; then
+            echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "image_ref=${GCP_ARTIFACT_REGISTRY}@${digest}" >> "$GITHUB_OUTPUT"
+          fi
           echo "Pushed ${remote}"
+        id: push
 
       - name: Push skipped (no GCP secrets)
         if: steps.auth.outcome != 'success'
         run: |
           echo "GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT / GCP_ARTIFACT_REGISTRY not set."
           echo "Image built locally as $LOCAL_IMAGE only. See README → CI / Artifact Registry."
+
+  deploy_staging:
+    name: deploy to Cloud Run staging + smoke
+    needs: container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      CLOUD_RUN_SERVICE_STAGING: ${{ secrets.CLOUD_RUN_SERVICE_STAGING }}
+      IMAGE_REF: ${{ needs.container.outputs.image_ref }}
+    if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_REGION != '' }}
+    steps:
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (staging)
+        shell: bash
+        env:
+          SERVICE: ${{ env.CLOUD_RUN_SERVICE_STAGING }}
+          REGION: ${{ env.GCP_REGION }}
+          PROJECT: ${{ env.GCP_PROJECT_ID }}
+          IMAGE_REF: ${{ env.IMAGE_REF }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SERVICE}" ]]; then SERVICE="gdrive-mcp-staging"; fi
+          if [[ -z "${IMAGE_REF}" ]]; then
+            echo "Missing IMAGE_REF (expected digest form). Skipping deploy."
+            exit 0
+          fi
+          gcloud run deploy "${SERVICE}" --region "${REGION}" --project "${PROJECT}" --image "${IMAGE_REF}" --quiet
+
+      - name: Smoke test staging URL
+        shell: bash
+        env:
+          SERVICE: ${{ env.CLOUD_RUN_SERVICE_STAGING }}
+          REGION: ${{ env.GCP_REGION }}
+          PROJECT: ${{ env.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SERVICE}" ]]; then SERVICE="gdrive-mcp-staging"; fi
+          url="$(gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT}" --format='value(status.url)')"
+          echo "Staging URL: ${url}"
+          curl -fsS "${url}/healthz" >/dev/null
+          curl -fsS "${url}/.well-known/oauth-authorization-server" >/dev/null

@@ -1,0 +1,3 @@
+# Targeted tests for S0.5 — Staging deploy from main (alias of TOK-10)
+unit: tests/unit/ci-pr-validation.test.ts
+unit: tests/unit/server.test.ts

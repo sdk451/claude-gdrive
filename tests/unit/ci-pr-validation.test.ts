@@ -53,4 +53,12 @@ describe("ci workflow (main + container)", () => {
     expect(yml).toContain("GCP_WORKLOAD_IDENTITY_PROVIDER");
     expect(yml).toContain("GCP_ARTIFACT_REGISTRY");
   });
+
+  it("supports optional staging deploy + smoke on main", () => {
+    expect(yml).toMatch(/^\s*deploy_staging:/m);
+    expect(yml).toContain("deploy to Cloud Run");
+    expect(yml).toContain("Smoke test staging URL");
+    expect(yml).toContain("/healthz");
+    expect(yml).toContain("/.well-known/oauth-authorization-server");
+  });
 });
