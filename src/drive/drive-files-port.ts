@@ -42,9 +42,29 @@ export type DownloadFileContentResult = {
   base64: string;
 };
 
+export type GetFileMetadataParams = {
+  fileId: string;
+};
+
+export type FileMetadataOwner = {
+  displayName?: string;
+  permissionId?: string;
+};
+
+export type FileMetadataResult = {
+  id: string;
+  name: string;
+  mimeType?: string;
+  size?: string;
+  modifiedTime?: string;
+  shared?: boolean;
+  owners?: FileMetadataOwner[];
+};
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
   downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
+  getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult>;
 }

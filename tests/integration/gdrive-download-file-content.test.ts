@@ -79,6 +79,9 @@ describe("TOK-25 download_file_content integration (stubbed Drive)", () => {
           base64: "JVBERi0xLjQKJeLjz9MK",
         };
       },
+      async getFileMetadata() {
+        throw new Error("getFileMetadata not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

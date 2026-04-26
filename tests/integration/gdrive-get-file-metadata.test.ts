@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_NEGOTIATED_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 
-import type { DriveFilesPort, ListFilesParams } from "../../src/drive/drive-files-port.js";
+import type { DriveFilesPort, GetFileMetadataParams } from "../../src/drive/drive-files-port.js";
 import { createApp } from "../../src/server.js";
 
 const MCP_POST_ACCEPT = "application/json, text/event-stream";
@@ -15,13 +15,13 @@ function initializeBody(id: number | string) {
     params: {
       protocolVersion: DEFAULT_NEGOTIATED_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "vitest-drive-search", version: "0.0.0" },
+      clientInfo: { name: "vitest-get-metadata", version: "0.0.0" },
     },
   };
 }
 
-describe("TOK-23 search_files integration (stubbed Drive)", () => {
-  it("tools/call search_files without stub returns isError (no token yet)", async () => {
+describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
+  it("tools/call get_file_metadata without stub returns isError (no token yet)", async () => {
     const app = createApp();
 
     const initRes = await app.request("http://localhost/mcp", {
@@ -30,7 +30,7 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-23-no-token")),
+      body: JSON.stringify(initializeBody("tok-26-no-token")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -47,9 +47,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 11,
+        id: 40,
         method: "tools/call",
-        params: { name: "search_files", arguments: { q: "name = 'x'" } },
+        params: { name: "get_file_metadata", arguments: { fileId: "meta-1" } },
       }),
     });
     expect(callRes.status).toBe(200);
@@ -57,24 +57,14 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
     expect(body.result?.isError).toBe(true);
-    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth/i);
+    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth|Complete OAuth/i);
   });
 
-  it("tools/call search_files forwards q to Drive port and returns stubbed files", async () => {
-    const calls: ListFilesParams[] = [];
+  it("tools/call get_file_metadata forwards fileId to stub", async () => {
+    const calls: GetFileMetadataParams[] = [];
     const stub: DriveFilesPort = {
-      async listFiles(params) {
-        calls.push(params);
-        return {
-          files: [
-            {
-              id: "file-1",
-              name: "Quarterly",
-              mimeType: "application/vnd.google-apps.spreadsheet",
-            },
-          ],
-          nextPageToken: "next-abc",
-        };
+      async listFiles() {
+        return { files: [] };
       },
       async readFileContent() {
         throw new Error("readFileContent not used in this test");
@@ -82,8 +72,17 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       async downloadFileContent() {
         throw new Error("downloadFileContent not used in this test");
       },
-      async getFileMetadata() {
-        throw new Error("getFileMetadata not used in this test");
+      async getFileMetadata(params) {
+        calls.push(params);
+        return {
+          id: "meta-1",
+          name: "Report.pdf",
+          mimeType: "application/pdf",
+          size: "1024",
+          modifiedTime: "2024-01-01T00:00:00.000Z",
+          shared: true,
+          owners: [{ displayName: "Ada Lovelace", permissionId: "owner" }],
+        };
       },
     };
 
@@ -95,7 +94,7 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-23-int")),
+      body: JSON.stringify(initializeBody("tok-26-int")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -112,36 +111,29 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 10,
+        id: 41,
         method: "tools/call",
-        params: {
-          name: "search_files",
-          arguments: {
-            q: "mimeType='application/vnd.google-apps.spreadsheet'",
-            pageSize: 10,
-          },
-        },
+        params: { name: "get_file_metadata", arguments: { fileId: "meta-1" } },
       }),
     });
     expect(callRes.status).toBe(200);
     const body = (await callRes.json()) as {
-      result?: { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
-      error?: unknown;
+      result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
-    expect(body.error).toBeUndefined();
     expect(body.result?.isError).not.toBe(true);
-    const text = body.result?.content?.[0]?.text;
-    expect(text).toBeDefined();
-    const parsed = JSON.parse(text!) as {
-      files: Array<{ id: string; name: string }>;
-      nextPageToken?: string;
+    const parsed = JSON.parse(body.result?.content?.[0]?.text ?? "{}") as {
+      id: string;
+      name: string;
+      mimeType?: string;
+      shared?: boolean;
+      owners?: Array<{ displayName?: string }>;
     };
-    expect(parsed.files).toHaveLength(1);
-    expect(parsed.files[0]?.id).toBe("file-1");
-    expect(parsed.nextPageToken).toBe("next-abc");
+    expect(parsed.name).toBe("Report.pdf");
+    expect(parsed.mimeType).toBe("application/pdf");
+    expect(parsed.shared).toBe(true);
+    expect(parsed.owners?.[0]?.displayName).toBe("Ada Lovelace");
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.q).toBe("mimeType='application/vnd.google-apps.spreadsheet'");
-    expect(calls[0]?.pageSize).toBe(10);
+    expect(calls[0]?.fileId).toBe("meta-1");
   });
 });

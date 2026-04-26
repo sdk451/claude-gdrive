@@ -5,6 +5,9 @@ import type {
   DriveFilesPort,
   DownloadFileContentParams,
   DownloadFileContentResult,
+  FileMetadataOwner,
+  FileMetadataResult,
+  GetFileMetadataParams,
   ListFilesParams,
   ListFilesResult,
   ReadFileContentParams,
@@ -22,6 +25,41 @@ function isTextualMime(mime: string, exportMimeType: string | undefined): boolea
     return true;
   }
   return false;
+}
+
+const FILE_METADATA_FIELDS =
+  "id,name,mimeType,size,modifiedTime,shared,owners(displayName,permissionId)";
+
+function parseFileMetadata(data: Record<string, unknown>): FileMetadataResult {
+  const id = String(data.id ?? "");
+  const name = String(data.name ?? "");
+  const result: FileMetadataResult = { id, name };
+  if (typeof data.mimeType === "string") {
+    result.mimeType = data.mimeType;
+  }
+  if (typeof data.size === "string") {
+    result.size = data.size;
+  }
+  if (typeof data.modifiedTime === "string") {
+    result.modifiedTime = data.modifiedTime;
+  }
+  if (typeof data.shared === "boolean") {
+    result.shared = data.shared;
+  }
+  if (Array.isArray(data.owners)) {
+    result.owners = data.owners.map((raw) => {
+      const o = raw as Record<string, unknown>;
+      const owner: FileMetadataOwner = {};
+      if (typeof o.displayName === "string") {
+        owner.displayName = o.displayName;
+      }
+      if (typeof o.permissionId === "string") {
+        owner.permissionId = o.permissionId;
+      }
+      return owner;
+    });
+  }
+  return result;
 }
 
 function driveErrorMessage(data: unknown, status: number): string {
@@ -176,6 +214,30 @@ export function createFetchDriveFilesPort(
         mimeType: contentType,
         base64: Buffer.from(buf).toString("base64"),
       };
+    },
+
+    async getFileMetadata(params: GetFileMetadataParams): Promise<FileMetadataResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}`);
+      u.searchParams.set("fields", FILE_METADATA_FIELDS);
+      const res = await fetchFn(u.href, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Drive API response");
+      }
+      return parseFileMetadata(data as Record<string, unknown>);
     },
   };
 }
