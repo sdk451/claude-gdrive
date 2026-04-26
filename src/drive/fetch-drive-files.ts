@@ -1,11 +1,26 @@
+import { Buffer } from "node:buffer";
+
 import type {
   DriveFileRef,
   DriveFilesPort,
   ListFilesParams,
   ListFilesResult,
+  ReadFileContentParams,
+  ReadFileContentResult,
 } from "./drive-files-port.js";
 
 const DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
+
+function isTextualMime(mime: string, exportMimeType: string | undefined): boolean {
+  const m = mime.toLowerCase();
+  if (m.startsWith("text/") || m === "application/json" || m.includes("xml")) {
+    return true;
+  }
+  if (exportMimeType?.toLowerCase().startsWith("text/")) {
+    return true;
+  }
+  return false;
+}
 
 function driveErrorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object") {
@@ -84,6 +99,50 @@ export function createFetchDriveFilesPort(
 
       const nextPageToken = typeof o.nextPageToken === "string" ? o.nextPageToken : undefined;
       return nextPageToken ? { files, nextPageToken } : { files };
+    },
+
+    async readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      let url: string;
+      if (params.exportMimeType !== undefined) {
+        const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}/export`);
+        u.searchParams.set("mimeType", params.exportMimeType);
+        url = u.href;
+      } else {
+        const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}`);
+        u.searchParams.set("alt", "media");
+        url = u.href;
+      }
+
+      const res = await fetchFn(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const contentType =
+        res.headers.get("content-type")?.split(";")[0]?.trim() ?? "application/octet-stream";
+
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+
+      if (isTextualMime(contentType, params.exportMimeType)) {
+        const text = await res.text();
+        return { mimeType: contentType, encoding: "utf-8", data: text };
+      }
+
+      const buf = await res.arrayBuffer();
+      return {
+        mimeType: contentType,
+        encoding: "base64",
+        data: Buffer.from(buf).toString("base64"),
+      };
     },
   };
 }

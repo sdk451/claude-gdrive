@@ -1,7 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { DriveFilesPort, ListFilesParams } from "../drive/drive-files-port.js";
+import type {
+  DriveFilesPort,
+  ListFilesParams,
+  ReadFileContentParams,
+} from "../drive/drive-files-port.js";
 
 export type CreateGdriveMcpServerOptions = {
   driveFiles: DriveFilesPort;
@@ -9,7 +13,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools; Epic 2 starts with `search_files` (TOK-23).
+ * Registers Drive tools (`search_files` TOK-23, `read_file_content` TOK-24).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -70,6 +74,48 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive search failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "read_file_content",
+    {
+      title: "Read Drive file content",
+      description:
+        "Read file bytes or export Google Docs/Sheets/Slides. Use `exportMimeType` (e.g. `text/plain`, `text/csv`, `application/pdf`) for Workspace files (`files.export`); omit for native files (`files.get` with `alt=media`).",
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` from metadata or search results."),
+        exportMimeType: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Export MIME type for Google Docs, Sheets, or Slides. See Drive `files.export`.",
+          ),
+      },
+    },
+    async (args) => {
+      try {
+        const params: ReadFileContentParams = { fileId: args.fileId };
+        if (args.exportMimeType !== undefined) {
+          params.exportMimeType = args.exportMimeType;
+        }
+        const result = await driveFiles.readFileContent(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive read failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

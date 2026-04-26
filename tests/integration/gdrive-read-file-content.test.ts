@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_NEGOTIATED_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 
-import type { DriveFilesPort, ListFilesParams } from "../../src/drive/drive-files-port.js";
+import type { DriveFilesPort, ReadFileContentParams } from "../../src/drive/drive-files-port.js";
 import { createApp } from "../../src/server.js";
 
 const MCP_POST_ACCEPT = "application/json, text/event-stream";
@@ -15,13 +15,13 @@ function initializeBody(id: number | string) {
     params: {
       protocolVersion: DEFAULT_NEGOTIATED_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "vitest-drive-search", version: "0.0.0" },
+      clientInfo: { name: "vitest-read-file", version: "0.0.0" },
     },
   };
 }
 
-describe("TOK-23 search_files integration (stubbed Drive)", () => {
-  it("tools/call search_files without stub returns isError (no token yet)", async () => {
+describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
+  it("tools/call read_file_content without stub returns isError (no token yet)", async () => {
     const app = createApp();
 
     const initRes = await app.request("http://localhost/mcp", {
@@ -30,7 +30,7 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-23-no-token")),
+      body: JSON.stringify(initializeBody("tok-24-no-token")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -47,9 +47,9 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 11,
+        id: 20,
         method: "tools/call",
-        params: { name: "search_files", arguments: { q: "name = 'x'" } },
+        params: { name: "read_file_content", arguments: { fileId: "abc123" } },
       }),
     });
     expect(callRes.status).toBe(200);
@@ -57,27 +57,22 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
     expect(body.result?.isError).toBe(true);
-    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth/i);
+    expect(body.result?.content?.[0]?.text).toMatch(/not connected|OAuth|Complete OAuth/i);
   });
 
-  it("tools/call search_files forwards q to Drive port and returns stubbed files", async () => {
-    const calls: ListFilesParams[] = [];
+  it("tools/call read_file_content forwards fileId and exportMimeType to stub", async () => {
+    const reads: ReadFileContentParams[] = [];
     const stub: DriveFilesPort = {
-      async listFiles(params) {
-        calls.push(params);
-        return {
-          files: [
-            {
-              id: "file-1",
-              name: "Quarterly",
-              mimeType: "application/vnd.google-apps.spreadsheet",
-            },
-          ],
-          nextPageToken: "next-abc",
-        };
+      async listFiles() {
+        return { files: [] };
       },
-      async readFileContent() {
-        throw new Error("readFileContent not used in this test");
+      async readFileContent(params) {
+        reads.push(params);
+        return {
+          mimeType: "text/plain",
+          encoding: "utf-8",
+          data: "Hello, Doc",
+        };
       },
     };
 
@@ -89,7 +84,7 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
         "Content-Type": "application/json",
         Accept: MCP_POST_ACCEPT,
       },
-      body: JSON.stringify(initializeBody("tok-23-int")),
+      body: JSON.stringify(initializeBody("tok-24-int")),
     });
     expect(initRes.status).toBe(200);
     const sessionId = initRes.headers.get("mcp-session-id")!;
@@ -106,36 +101,29 @@ describe("TOK-23 search_files integration (stubbed Drive)", () => {
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 10,
+        id: 21,
         method: "tools/call",
         params: {
-          name: "search_files",
-          arguments: {
-            q: "mimeType='application/vnd.google-apps.spreadsheet'",
-            pageSize: 10,
-          },
+          name: "read_file_content",
+          arguments: { fileId: "doc-1", exportMimeType: "text/plain" },
         },
       }),
     });
     expect(callRes.status).toBe(200);
     const body = (await callRes.json()) as {
-      result?: { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
-      error?: unknown;
+      result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
-    expect(body.error).toBeUndefined();
     expect(body.result?.isError).not.toBe(true);
-    const text = body.result?.content?.[0]?.text;
-    expect(text).toBeDefined();
-    const parsed = JSON.parse(text!) as {
-      files: Array<{ id: string; name: string }>;
-      nextPageToken?: string;
+    const parsed = JSON.parse(body.result?.content?.[0]?.text ?? "{}") as {
+      mimeType: string;
+      encoding: string;
+      data: string;
     };
-    expect(parsed.files).toHaveLength(1);
-    expect(parsed.files[0]?.id).toBe("file-1");
-    expect(parsed.nextPageToken).toBe("next-abc");
+    expect(parsed.data).toBe("Hello, Doc");
+    expect(parsed.encoding).toBe("utf-8");
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.q).toBe("mimeType='application/vnd.google-apps.spreadsheet'");
-    expect(calls[0]?.pageSize).toBe(10);
+    expect(reads).toHaveLength(1);
+    expect(reads[0]?.fileId).toBe("doc-1");
+    expect(reads[0]?.exportMimeType).toBe("text/plain");
   });
 });
