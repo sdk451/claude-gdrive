@@ -126,7 +126,7 @@ jobs:
 
       - name: Install gcloud SDK
         if: steps.auth.outcome == 'success'
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
         if: steps.auth.outcome == 'success'
@@ -186,7 +186,7 @@ jobs:
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
       - name: Install gcloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy to Cloud Run (staging)
         shell: bash
