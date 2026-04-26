@@ -10,16 +10,16 @@ Confirm Epic 0 has actually been delivered (or is at least demonstrably ready to
 
 ## Procedure
 
-1. **Locate the readiness checker.** If `docs/autonomous-swe-kit/docs/workflows/check-implementation-readiness/workflow.md` exists, run it. Otherwise run an inline check using the criteria below.
+1. **Locate the readiness checker.** If [`docs/autonomous-swe-kit/docs/workflows/3-solutioning/check-implementation-readiness/workflow.md`](../../../3-solutioning/check-implementation-readiness/workflow.md) exists, run it. Otherwise run an inline check using the criteria below.
 2. **Inline criteria** (record yes/no with evidence link):
-   - [ ] CI runs lint + typecheck + unit + targeted tests on every PR
-   - [ ] Container builds and pushes to a registry
-   - [ ] Staging deploy works from main
-   - [ ] Secrets are managed via Secret Manager / Workers Secrets / equivalent (no `.env` checked in)
-   - [ ] Structured logs visible in target environment
-   - [ ] Error tracking receives a test event
-   - [ ] `scripts/run-targeted-tests.sh` runs end-to-end
-   - [ ] `verify-completion-promise` hook is registered and exits 0 on a no-op story id
+   - [x] CI runs lint + typecheck + unit + targeted tests on every PR — evidence: `.github/workflows/pr-validation.yml`, `docs/test-strategy.md`
+   - [x] Container builds and pushes to a registry — evidence: `.github/workflows/ci.yml` (`container` job), `Dockerfile`
+   - [x] Staging deploy works from main — evidence: `.github/workflows/ci.yml` (`deploy_staging` job), `README.md`
+   - [x] Secrets are managed via Secret Manager / Workers Secrets / equivalent (no `.env` checked in) — evidence: `env.example`, `docs/environments.md`, `src/config/env.ts`
+   - [x] Structured logs visible in target environment — evidence: `src/observability/logger.ts`, `src/server.ts`, `docs/observability.md`
+   - [x] Error tracking receives a test event — evidence: `docs/observability.md`, `env.example` (`SENTRY_DSN`), `src/observability/sentry-readiness.ts`, `GET /__smoke/sentry-test` in `src/server.ts`
+   - [x] `scripts/run-targeted-tests.sh` runs end-to-end — evidence: `scripts/run-targeted-tests.sh`, `docs/tests/TOK-6-targets.txt`
+   - [x] `verify-completion-promise` hook is registered and exits 0 when the branch has no story id (no-op) — evidence: `.cursor/hooks.json`, `.cursor/hooks/verify-completion-promise.sh`
 3. **Record the gate result** in `docs/_onboarding-state.md` and as a Linear comment on the Epic 0 issue. If failing, list which Epic 0 stories must be reopened.
 4. **Append state.**
 

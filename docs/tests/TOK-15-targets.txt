@@ -1,0 +1,3 @@
+# TOK-15 / S0.10 — implementation-readiness gate
+unit: tests/unit/implementation-readiness-gate.test.ts
+unit: tests/unit/sentry-readiness-route.test.ts

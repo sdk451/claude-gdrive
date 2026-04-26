@@ -1,0 +1,3 @@
+# Alias for backlog id S0.10 — same as TOK-15-targets.txt
+unit: tests/unit/implementation-readiness-gate.test.ts
+unit: tests/unit/sentry-readiness-route.test.ts

@@ -5,6 +5,7 @@ import {
   newRequestId,
   outcomeFromStatus,
 } from "./observability/logger.js";
+import { readinessSentryPing } from "./observability/sentry-readiness.js";
 
 /**
  * Build a Hono app for the gdrive-cowork-connector MCP server.
@@ -65,6 +66,12 @@ export function createApp(): Hono {
       },
     }),
   );
+
+  /** Optional Sentry probe — only loads SDK when `SENTRY_DSN` is set. */
+  app.get("/__smoke/sentry-test", async (c) => {
+    const result = await readinessSentryPing();
+    return c.json(result);
+  });
 
   return app;
 }
