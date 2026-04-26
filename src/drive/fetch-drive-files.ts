@@ -1,6 +1,9 @@
 import { Buffer } from "node:buffer";
+import { randomBytes } from "node:crypto";
 
 import type {
+  CreateFileParams,
+  CreateFileResult,
   DriveFileRef,
   DriveFilesPort,
   DownloadFileContentParams,
@@ -15,6 +18,12 @@ import type {
 } from "./drive-files-port.js";
 
 const DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
+const DRIVE_UPLOAD_FILES_ENDPOINT = "https://www.googleapis.com/upload/drive/v3/files";
+
+/** Max decoded bytes for multipart `mediaBase64` (memory bound). */
+const CREATE_FILE_MEDIA_MAX_BYTES = 32 * 1024 * 1024;
+
+const CREATE_FILE_FIELDS = "id,name,mimeType";
 
 function isTextualMime(mime: string, exportMimeType: string | undefined): boolean {
   const m = mime.toLowerCase();
@@ -70,6 +79,29 @@ function driveErrorMessage(data: unknown, status: number): string {
     }
   }
   return `Drive API error (${status})`;
+}
+
+function parseCreatedFile(data: Record<string, unknown>): CreateFileResult {
+  const id = String(data.id ?? "");
+  const name = String(data.name ?? "");
+  const result: CreateFileResult = { id, name };
+  if (typeof data.mimeType === "string") {
+    result.mimeType = data.mimeType;
+  }
+  return result;
+}
+
+function buildMultipartCreateBody(
+  metadata: Record<string, unknown>,
+  mediaBuffer: Buffer,
+  mediaMimeType: string,
+  boundary: string,
+): Buffer {
+  const crlf = "\r\n";
+  const metaJson = JSON.stringify(metadata);
+  const head = `--${boundary}${crlf}Content-Type: application/json; charset=UTF-8${crlf}${crlf}${metaJson}${crlf}--${boundary}${crlf}Content-Type: ${mediaMimeType}${crlf}${crlf}`;
+  const tail = `${crlf}--${boundary}--${crlf}`;
+  return Buffer.concat([Buffer.from(head, "utf8"), mediaBuffer, Buffer.from(tail, "utf8")]);
 }
 
 /**
@@ -238,6 +270,83 @@ export function createFetchDriveFilesPort(
         throw new Error("Invalid Drive API response");
       }
       return parseFileMetadata(data as Record<string, unknown>);
+    },
+
+    async createFile(params: CreateFileParams): Promise<CreateFileResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      const hasMedia =
+        params.mediaBase64 !== undefined &&
+        params.mediaBase64 !== "" &&
+        params.mediaBase64.trim() !== "";
+      if (hasMedia && (params.mediaMimeType === undefined || params.mediaMimeType.trim() === "")) {
+        throw new Error("mediaMimeType is required when mediaBase64 is set");
+      }
+
+      const metadata: Record<string, unknown> = {
+        name: params.name,
+        mimeType: params.mimeType,
+      };
+      if (params.parentFolderId !== undefined && params.parentFolderId !== "") {
+        metadata.parents = [params.parentFolderId];
+      }
+
+      if (!hasMedia) {
+        const u = new URL(DRIVE_FILES_ENDPOINT);
+        u.searchParams.set("fields", CREATE_FILE_FIELDS);
+        const res = await fetchFn(u.href, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json; charset=UTF-8",
+          },
+          body: JSON.stringify(metadata),
+        });
+        const data: unknown = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(driveErrorMessage(data, res.status));
+        }
+        if (!data || typeof data !== "object") {
+          throw new Error("Invalid Drive API response");
+        }
+        return parseCreatedFile(data as Record<string, unknown>);
+      }
+
+      const mediaBuf = Buffer.from(params.mediaBase64!, "base64");
+      if (mediaBuf.length > CREATE_FILE_MEDIA_MAX_BYTES) {
+        throw new Error(
+          `Decoded media exceeds limit of ${CREATE_FILE_MEDIA_MAX_BYTES} bytes for create_file`,
+        );
+      }
+
+      const boundary = `gdrive_${randomBytes(16).toString("hex")}`;
+      const body = buildMultipartCreateBody(metadata, mediaBuf, params.mediaMimeType!, boundary);
+      const u = new URL(DRIVE_UPLOAD_FILES_ENDPOINT);
+      u.searchParams.set("uploadType", "multipart");
+      u.searchParams.set("fields", CREATE_FILE_FIELDS);
+
+      const res = await fetchFn(u.href, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      });
+
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Drive API response");
+      }
+      return parseCreatedFile(data as Record<string, unknown>);
     },
   };
 }

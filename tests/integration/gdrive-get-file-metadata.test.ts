@@ -84,6 +84,9 @@ describe("TOK-26 get_file_metadata integration (stubbed Drive)", () => {
           owners: [{ displayName: "Ada Lovelace", permissionId: "owner" }],
         };
       },
+      async createFile() {
+        throw new Error("createFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });

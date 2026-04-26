@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import type {
+  CreateFileParams,
   DriveFilesPort,
   DownloadFileContentParams,
   GetFileMetadataParams,
@@ -15,7 +16,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`, TOK-28 `create_file`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -182,6 +183,92 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive metadata failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_file",
+    {
+      title: "Create Drive file or folder",
+      description:
+        "Create a Google Drive file via `files.create`: folders (`application/vnd.google-apps.folder`), empty Docs/Sheets/Slides (`application/vnd.google-apps.document` / `spreadsheet` / `presentation`), or a small binary file using `mediaBase64` + `mediaMimeType` (multipart upload; size limits apply).",
+      inputSchema: {
+        name: z.string().min(1).describe("Display name for the new file or folder."),
+        mimeType: z
+          .string()
+          .min(1)
+          .describe(
+            "Drive MIME type for the new resource (e.g. `application/vnd.google-apps.folder`, `application/vnd.google-apps.document`).",
+          ),
+        parentFolderId: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Optional parent folder `fileId`; omit for My Drive root behavior per account defaults.",
+          ),
+        mediaBase64: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Optional base64 file bytes for a non-Workspace binary create (uses multipart).",
+          ),
+        mediaMimeType: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "MIME type of the decoded `mediaBase64` payload (required when `mediaBase64` is set).",
+          ),
+      },
+    },
+    async (args) => {
+      try {
+        if (
+          args.mediaBase64 !== undefined &&
+          args.mediaBase64 !== "" &&
+          (args.mediaMimeType === undefined || args.mediaMimeType === "")
+        ) {
+          return {
+            isError: true as const,
+            content: [
+              {
+                type: "text" as const,
+                text: "mediaMimeType is required when mediaBase64 is set",
+              },
+            ],
+          };
+        }
+        const params: CreateFileParams = {
+          name: args.name,
+          mimeType: args.mimeType,
+        };
+        if (args.parentFolderId !== undefined) {
+          params.parentFolderId = args.parentFolderId;
+        }
+        if (args.mediaBase64 !== undefined) {
+          params.mediaBase64 = args.mediaBase64;
+        }
+        if (args.mediaMimeType !== undefined) {
+          params.mediaMimeType = args.mediaMimeType;
+        }
+        const result = await driveFiles.createFile(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive create failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],
