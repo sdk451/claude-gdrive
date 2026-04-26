@@ -32,8 +32,19 @@ export type ReadFileContentResult = {
   data: string;
 };
 
+/** `files.get` with `alt=media` — binary-safe base64 payload. */
+export type DownloadFileContentParams = {
+  fileId: string;
+};
+
+export type DownloadFileContentResult = {
+  mimeType: string;
+  base64: string;
+};
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
   readFileContent(params: ReadFileContentParams): Promise<ReadFileContentResult>;
+  downloadFileContent(params: DownloadFileContentParams): Promise<DownloadFileContentResult>;
 }

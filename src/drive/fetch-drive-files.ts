@@ -3,6 +3,8 @@ import { Buffer } from "node:buffer";
 import type {
   DriveFileRef,
   DriveFilesPort,
+  DownloadFileContentParams,
+  DownloadFileContentResult,
   ListFilesParams,
   ListFilesResult,
   ReadFileContentParams,
@@ -142,6 +144,37 @@ export function createFetchDriveFilesPort(
         mimeType: contentType,
         encoding: "base64",
         data: Buffer.from(buf).toString("base64"),
+      };
+    },
+
+    async downloadFileContent(
+      params: DownloadFileContentParams,
+    ): Promise<DownloadFileContentResult> {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(
+          "Google Drive is not connected for this MCP session. Complete OAuth and retry.",
+        );
+      }
+
+      const u = new URL(`${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(params.fileId)}`);
+      u.searchParams.set("alt", "media");
+      const res = await fetchFn(u.href, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const contentType =
+        res.headers.get("content-type")?.split(";")[0]?.trim() ?? "application/octet-stream";
+
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        throw new Error(driveErrorMessage(data, res.status));
+      }
+
+      const buf = await res.arrayBuffer();
+      return {
+        mimeType: contentType,
+        base64: Buffer.from(buf).toString("base64"),
       };
     },
   };
