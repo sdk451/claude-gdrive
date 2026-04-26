@@ -72,7 +72,10 @@ A simple log-based "secret-in-log" canary regex (e.g., looking for `ya29\.` Goog
 
 ## Dashboards
 
-A single Cloud Monitoring dashboard tracks: request rate, p50/p95/p99 latency, 5xx rate, OAuth refresh success rate, top tools by call volume, top error messages (after redaction). The README documents how operators import it from the repo's `infra/observability/dashboard.json`.
+A single Cloud Monitoring dashboard tracks: request rate, p50/p95/p99 latency, 5xx rate, OAuth refresh success rate, top tools by call volume, top error messages (after redaction).
+
+- **Latency (S5.2 / NF-02):** import **`infra/observability/latency-dashboard.json`** (Cloud Run `request_latencies` p95 + request rate). See **`infra/observability/README.md`** for Console / API import and the **`scripts/synthetic-mcp-latency.mjs`** staging gate (100 RPS, p95 ≤ 3 s).
+- The root **README** operator section links the same paths for discoverability.
 
 ## Operator runbooks
 
