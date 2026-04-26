@@ -138,3 +138,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:07:25.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-31"},"context":{"branch":"TOK-31/s01-move-file"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:07:30.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-31"},"context":{"branch":"TOK-31/s01-move-file"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:07:35.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-31"},"context":{"branch":"TOK-31/s01-move-file"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:12:40.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-32"},"context":{"branch":"TOK-32/s01-share-file"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:12:45.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-32"},"context":{"branch":"TOK-32/s01-share-file"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:12:50.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-32"},"context":{"branch":"TOK-32/s01-share-file"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T21:12:55.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-32"},"context":{"branch":"TOK-32/s01-share-file"}}

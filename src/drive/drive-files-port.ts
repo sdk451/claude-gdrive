@@ -121,6 +121,43 @@ export type MoveFileParams = {
 
 export type MoveFileResult = CreateFileResult;
 
+export type ShareFileGrantParams = {
+  action: "grant";
+  fileId: string;
+  /** Drive permission role (e.g. `reader`, `writer`, `commenter`). */
+  role: string;
+  /** Drive permission `type`: `user`, `group`, `domain`, or `anyone`. */
+  granteeType: string;
+  /** Required when `granteeType` is `user` or `group`. */
+  emailAddress?: string;
+  /** Required when `granteeType` is `domain`. */
+  domain?: string;
+};
+
+export type ShareFileRevokeParams = {
+  action: "revoke";
+  fileId: string;
+  permissionId: string;
+};
+
+export type ShareFileParams = ShareFileGrantParams | ShareFileRevokeParams;
+
+export type ShareFileGrantResult = {
+  action: "grant";
+  permissionId: string;
+  type: string;
+  role: string;
+  displayName?: string;
+  domain?: string;
+};
+
+export type ShareFileRevokeResult = {
+  action: "revoke";
+  deleted: true;
+};
+
+export type ShareFileResult = ShareFileGrantResult | ShareFileRevokeResult;
+
 /** Abstraction over Drive read/search for tests and production. */
 export interface DriveFilesPort {
   listFiles(params: ListFilesParams): Promise<ListFilesResult>;
@@ -131,4 +168,5 @@ export interface DriveFilesPort {
   createFile(params: CreateFileParams): Promise<CreateFileResult>;
   updateFile(params: UpdateFileParams): Promise<UpdateFileResult>;
   moveFile(params: MoveFileParams): Promise<MoveFileResult>;
+  shareFile(params: ShareFileParams): Promise<ShareFileResult>;
 }

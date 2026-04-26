@@ -95,6 +95,9 @@ describe("TOK-31 move_file integration (stubbed Drive)", () => {
         calls.push(params);
         return { id: params.fileId, name: "Moved item" };
       },
+      async shareFile() {
+        throw new Error("shareFile not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
