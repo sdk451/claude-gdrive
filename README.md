@@ -2,6 +2,48 @@
 
 Self-hosted remote MCP server plus Cowork/Claude plugin for reliable Google Drive access where Anthropic's bundled connector fails.
 
+## Operator guide — server setup & Cowork install
+
+End-to-end path for **operators** who deploy this MCP server and distribute a **Cowork / Claude plugin bundle** (see **P-07** in [`docs/prd.md`](docs/prd.md)). Canonical infrastructure tables, WIF, Redis, and Epic 0 checklists live in **[`docs/environments.md`](docs/environments.md)** — this section ties them to concrete steps.
+
+### 1. Google Cloud OAuth client
+
+1. In a **GCP project**, enable the **Google Drive API** (`APIs & Services → Library`).
+2. **Credentials → Create credentials → OAuth client ID → Web application**.
+3. Under **Authorized redirect URIs**, add at least **`https://claude.ai/api/mcp/auth_callback`** so **hosted Claude / Cowork** can complete OAuth ([`docs/architecture.md`](docs/architecture.md) OAuth section). If you support **Claude Code**, also register the loopback redirect URIs your MCP client registration flow uses (see [`docs/ux.md`](docs/ux.md) and [`docs/brief.md`](docs/brief.md)).
+4. Record **Client ID** and **Client secret** — they map to **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** in [`env.example`](env.example). Store real values only in **Secret Manager** or a locked secret store, never in git.
+
+### 2. Secrets, issuer URL, and Cloud Run
+
+- Mirror every **required** variable from [`env.example`](env.example) into **Google Secret Manager** using the **same secret id as env var name**, then reference each secret on the Cloud Run service (see **[`docs/environments.md#secret-manager-staging`](docs/environments.md#secret-manager-staging)**).
+- Set **`PUBLIC_ISSUER_URL`** to the **HTTPS origin** clients use to reach this service (e.g. `https://gdrive-mcp-staging-xxxxx.run.app`), **no path** — OAuth discovery (`/.well-known/oauth-authorization-server`) is derived from that issuer.
+- **`SESSION_SECRET`**: generate with `openssl rand -hex 32` per environment.
+- **Default deployment** is **Cloud Run** in the project/region you chose; follow **[Bootstrapping checklist (Epic 0)](docs/environments.md#bootstrapping-checklist-epic-0)** for Artifact Registry, Memorystore + VPC connector (staging/prod sessions), and Workload Identity Federation for GitHub Actions.
+
+**Build & deploy (summary):** from the repo root, `docker build` using the **`Dockerfile`**, push to Artifact Registry, then `gcloud run deploy` (or rely on CI: when repository secrets `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, and `GCP_ARTIFACT_REGISTRY` are set, **`ci.yml`** builds and can push images — see **CI — Artifact Registry push** below). Map secrets to env vars on the revision.
+
+### 3. Smoke-check the running service
+
+Replace `$ORIGIN` with your public **HTTPS origin** (same value you used for `PUBLIC_ISSUER_URL`):
+
+```bash
+curl -fsS "$ORIGIN/healthz"
+curl -fsS "$ORIGIN/.well-known/oauth-authorization-server" | head
+```
+
+After deploy, **`release.yml`** also exercises **`/__smoke/mcp-tools-list`** against prod when you cut a tag (see **Prod release** below).
+
+### 4. Plugin bundle for Cowork (P-05)
+
+The expected **file-only** layout (`.claude-plugin/plugin.json`, **`.mcp.json`**, `skills/`, optional `commands/`) is documented under **Expected plugin bundle layout** in [`docs/architecture.md`](docs/architecture.md).
+
+1. Ensure **`.mcp.json`** points `mcpServers.*.url` at your live **`https://<host>/mcp`** endpoint (Streamable HTTP MCP path).
+2. Zip the bundle (repository root is fine once those files are present) and install via **Cowork plugin UI** (ZIP upload) or your internal distribution channel.
+
+### 5. Hand off to end users
+
+Users connect the connector in Cowork / Claude, complete **Google consent** for their own account, and should see Drive tools via **`tools/list`**. If tools are empty, re-check issuer URL, OAuth redirect URIs, and that Anthropic egress can reach your region (see **NF-01** in [`docs/prd.md`](docs/prd.md)).
+
 ## Development
 
 ```bash

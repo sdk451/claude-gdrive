@@ -1,0 +1,1 @@
+tests/unit/operator-readme-contract.test.ts
