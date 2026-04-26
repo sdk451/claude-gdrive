@@ -1,0 +1,2 @@
+# Alias for backlog id S1.2 — same as TOK-19-targets.txt
+unit: tests/contract/mcp-tool-registry.test.ts

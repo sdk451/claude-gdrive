@@ -1,0 +1,2 @@
+# TOK-19 / S1.2 — tool registry (empty)
+unit: tests/contract/mcp-tool-registry.test.ts

@@ -2,18 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 import { InMemoryEventStore } from "@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 
-const transports = new Map<string, WebStandardStreamableHTTPServerTransport>();
+import { createGdriveMcpServer } from "./gdrive-mcp-server.js";
 
-function createMcpServer(): McpServer {
-  return new McpServer({
-    name: "gdrive-cowork-connector",
-    version: "0.0.0",
-  });
-}
+const transports = new Map<string, WebStandardStreamableHTTPServerTransport>();
 
 /**
  * Stateful Streamable HTTP MCP at `/mcp` (POST / GET / DELETE).
@@ -76,7 +70,7 @@ export function mountStreamableMcp(app: Hono): void {
           const sid = transport.sessionId;
           if (sid) transports.delete(sid);
         };
-        const server = createMcpServer();
+        const server = createGdriveMcpServer();
         await server.connect(transport);
         return transport.handleRequest(raw, { parsedBody: body });
       }
