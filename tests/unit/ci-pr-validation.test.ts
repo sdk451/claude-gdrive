@@ -20,9 +20,11 @@ describe("pr-validation workflow", () => {
     expect(yml).toContain("run-targeted-tests.sh");
     expect(yml).toMatch(/Resolve story id|story_id/);
     expect(yml).toContain("write-test-result-summary.mjs");
+    expect(yml).toContain("fetch-linear-issue.mjs");
     expect(yml).toContain("append-test-run-log.mjs");
     expect(yml).toContain("actions/upload-artifact@v4");
     expect(yml).toContain("reports/test-run-record.json");
+    expect(yml).toContain("reports/linear-issue.json");
     expect(yml).toContain("docs/test-runs/test-runs.jsonl");
   });
 });

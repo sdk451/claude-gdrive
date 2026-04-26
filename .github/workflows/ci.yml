@@ -83,6 +83,7 @@ jobs:
           path: |
             reports/MAIN_REGRESSION_SUMMARY.md
             reports/test-run-record.json
+            reports/linear-issue.json
             reports/vitest-unit.json
             reports/vitest-unit-junit.xml
             reports/regression-story-targets.log
