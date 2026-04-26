@@ -98,3 +98,7 @@
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:05.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:10.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
 {"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:27:15.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-20"},"context":{"branch":"TOK-20/s01-oauth-discovery"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:59:45.000Z","kind":"persona","persona":{"name":"autonomous","storyId":"TOK-21"},"context":{"branch":"TOK-21/s01-dcr-onboarding"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:59:50.000Z","kind":"persona","persona":{"name":"planner","storyId":"TOK-21"},"context":{"branch":"TOK-21/s01-dcr-onboarding"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T11:59:55.000Z","kind":"persona","persona":{"name":"test-architect","storyId":"TOK-21"},"context":{"branch":"TOK-21/s01-dcr-onboarding"}}
+{"schema":"gdrive.agentAudit.v1","timestamp":"2026-04-26T12:00:00.000Z","kind":"persona","persona":{"name":"implementer","storyId":"TOK-21"},"context":{"branch":"TOK-21/s01-dcr-onboarding"}}

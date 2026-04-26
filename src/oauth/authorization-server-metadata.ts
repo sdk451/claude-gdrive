@@ -1,6 +1,6 @@
 /**
  * OAuth 2.0 Authorization Server Metadata (RFC 8414) for this connector.
- * Endpoints are paths on the same issuer origin; real handlers land in later stories (TOK-21+).
+ * Endpoint URLs are on the same issuer origin; handlers mount when `createApp({ oauth })` is set (TOK-21+).
  */
 
 /** Default used by `createApp()` when no issuer is passed (tests / local smoke). */

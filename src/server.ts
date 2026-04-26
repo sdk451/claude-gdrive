@@ -11,10 +11,13 @@ import {
   buildAuthorizationServerMetadata,
   DEFAULT_OAUTH_ISSUER_BASE_URL,
 } from "./oauth/authorization-server-metadata.js";
+import { mountOauthRoutes, type OauthRouteConfig } from "./oauth/mount-oauth-routes.js";
 
 export type CreateAppOptions = {
   /** Issuer base URL for RFC 8414 metadata (from `PUBLIC_ISSUER_URL` at boot). */
   oauthIssuerBaseUrl?: string;
+  /** When set, mounts DCR + OAuth authorize/callback/token (S1.4 / TOK-21). */
+  oauth?: OauthRouteConfig;
 };
 
 /**
@@ -60,6 +63,10 @@ export function createApp(options?: CreateAppOptions): Hono {
   mountStreamableMcp(app);
 
   app.get("/.well-known/oauth-authorization-server", (c) => c.json(oauthMetadata));
+
+  if (options?.oauth) {
+    mountOauthRoutes(app, options.oauth);
+  }
 
   // Release / load-balancer smoke only — not a full MCP tools/list transport.
   app.get("/__smoke/mcp-tools-list", (c) =>
