@@ -54,6 +54,8 @@ After staging deploy, with `SENTRY_DSN` set on the service, call this route once
   - `drive_api_call_total{endpoint,status_class}`
   - `oauth_refresh_total{outcome}`
   - `tools_list_empty_total` — alarmable at non-zero; this is the failure mode we are explicitly defending against.
+    - **Runtime:** `src/observability/tools-list-empty.ts` increments an in-process counter and emits **`msg: tools.list.empty`** with **`metric: tools_list_empty_total`** and `session_id_hash` whenever a JSON-RPC **success** response carries `result.tools: []` (should never occur on a healthy build).
+    - **Cloud Logging metric:** create a log-based counter on `jsonPayload.msg="tools.list.empty"` OR `jsonPayload.metric="tools_list_empty_total"` (rate > 0 over 5 min → page). See `docs/runbooks/tools-list-empty.md`.
 
 ## Alerting (initial set)
 
