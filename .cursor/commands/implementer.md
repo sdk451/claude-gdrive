@@ -34,9 +34,17 @@ The targeted suite spans multiple tiers (unit, api, component, e2e, visual, ux-f
 
 ## Audit log (append-only)
 
-When running in the autonomous loop, append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
-at the start of the session (and optionally when switching phases). Include:
-timestamp, `kind: "persona"`, persona name `implementer`, story id, branch, and (when available) PR + Actions run links.
+When running in the autonomous loop, append a `persona` entry to
+`docs/agent-audit/agent-audit.jsonl` at the start of the session (and
+optionally when switching phases). Include: timestamp, `kind: "persona"`,
+persona name `implementer`, story id, branch, and (when available) PR +
+Actions run links.
+
+**Merge hygiene:** on any branch **except** `main`, run
+`bash scripts/git/strip-narrative-logs-from-index.sh` immediately **before**
+every `git commit` so those narrative paths (and `docs/diary/**` updated by the
+diary hook) are **not** part of the PR. See `.cursor/commands/autonomous.md`
+and `docs/agent-audit/README.md`.
 
 Definition of done: **every target in `docs/tests/{story-id}-targets.txt` passes.** Nothing else. Get there however the plan directs.
 
@@ -53,7 +61,7 @@ LOOP (max 25 iterations):
   3. Run the targeted suite:
      ./scripts/run-targeted-tests.sh docs/tests/{story-id}-targets.txt
   4. Run lint + format + type-check on changed files.
-  5. Commit progress with a conventional-commit message.
+  5. On non-`main` branches: `bash scripts/git/strip-narrative-logs-from-index.sh`, then commit progress with a conventional-commit message.
   6. If GREEN across ALL targets in the targets file:
        a. Run lint + format + type-check one final time on the whole diff.
        b. Final commit: "feat(<id>): <summary>"

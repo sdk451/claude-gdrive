@@ -1,11 +1,9 @@
-* text=auto
-
-# Bash scripts must be LF to run under Git Bash / Linux.
+# Bash hooks / helper scripts must stay LF for Git Bash on Windows.
 *.sh text eol=lf
 
-# Common configs (keep consistent; harmless if already LF).
-*.md text eol=lf
-*.json text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-
+# Merge hygiene: narrative logs are high-churn and cause avoidable PR conflicts.
+# When merging into main, keep the checked-out branch's version for these paths
+# ("ours" during `git checkout main && git merge feature`).
+# Story branches should not commit these files (see strip script + autonomous docs).
+docs/diary/** merge=ours
+docs/agent-audit/agent-audit.jsonl merge=ours

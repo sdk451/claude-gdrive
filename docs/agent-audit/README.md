@@ -8,8 +8,20 @@ This repo maintains an **append-only** audit log to trace autonomous execution:
 
 ## Files
 
-- `docs/agent-audit/agent-audit.jsonl`: append-only log
+- `docs/agent-audit/agent-audit.jsonl`: append-only log (canonical on **`main`**)
 - Local hook runner also writes a gitignored working log to `reports/agent-audit.jsonl` so normal development doesn’t constantly dirty the working tree.
+
+### Merge hygiene (story branches)
+
+Autonomous / implementer loops may append persona JSON here while working, but
+**before every `git commit` on a non-`main` branch** run:
+
+`bash scripts/git/strip-narrative-logs-from-index.sh`
+
+so `docs/agent-audit/agent-audit.jsonl` and `docs/diary/**` are **not** part of
+the PR. Root **`.gitattributes`** sets `merge=ours` for those paths so merges
+into `main` prefer the checked-out branch’s version when Git does a textual
+merge — combined with the strip script, PRs stay focused on product changes.
 
 ## Schema: `AgentAuditRecord` (v1)
 
