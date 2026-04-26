@@ -44,6 +44,8 @@ jobs:
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   trivy_fs:
     name: trivy fs (high/critical gate)
@@ -53,7 +55,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0
+        # Pin to a known-safe release tag (post-2026-03 supply chain incident guidance).
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: fs
           scan-ref: .
