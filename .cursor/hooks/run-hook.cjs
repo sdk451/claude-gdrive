@@ -36,7 +36,7 @@ try {
 
 function safeAppendAudit(line) {
   try {
-    const outDir = path.resolve(process.cwd(), "docs", "agent-audit");
+    const outDir = path.resolve(process.cwd(), "reports");
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, "agent-audit.jsonl");
     fs.appendFileSync(outPath, line + "\n", "utf8");

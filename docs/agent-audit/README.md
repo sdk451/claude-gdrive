@@ -9,6 +9,7 @@ This repo maintains an **append-only** audit log to trace autonomous execution:
 ## Files
 
 - `docs/agent-audit/agent-audit.jsonl`: append-only log
+- Local hook runner also writes a gitignored working log to `reports/agent-audit.jsonl` so normal development doesn’t constantly dirty the working tree.
 
 ## Schema: `AgentAuditRecord` (v1)
 
