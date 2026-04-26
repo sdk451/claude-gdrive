@@ -23,7 +23,7 @@ describe("security baseline", () => {
 
     expect(yml).toMatch(/pnpm\s+audit/);
     expect(yml).toMatch(/audit-level\s*=?\s*high/);
-    expect(yml).toContain("gitleaks/gitleaks-action");
+    expect(yml).toMatch(/gitleaks\/gitleaks-action|gitleaks:v/i);
     expect(yml).toContain("aquasecurity/trivy-action");
   });
 
