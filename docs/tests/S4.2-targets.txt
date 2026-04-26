@@ -1,0 +1,1 @@
+tests/unit/plugin-bundle-skills.test.ts
