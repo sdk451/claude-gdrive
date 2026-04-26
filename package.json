@@ -28,7 +28,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@sentry/node": "^9.47.1",
+    "@sentry/node": "^10.50.0",
     "hono": "^4.6.14",
     "pino": "^10.3.1"
   },
@@ -40,7 +40,7 @@
     "markdownlint-cli2": "^0.22.1",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.18.1",
     "vitest": "^2.1.8"
   },
