@@ -57,9 +57,13 @@ Implementer), and ship it without waiting for human review. CI is the gate.
 ### 4. Plan & test architecture (BMAD inner cycle)
 - Hand off to `/planner` for `$STORY_ID`. Output: `docs/designs/$STORY_ID.md`.
   Wait for completion before proceeding.
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `planner`, story id, branch, and timestamp.
 - Hand off to `/test-architect` for `$STORY_ID`. Output:
   `docs/tests/$STORY_ID.md` and `docs/tests/$STORY_ID-targets.txt`, plus the
   initial failing tests.
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `test-architect`, story id, branch, and timestamp.
 - Inspect both outputs. If either is missing or visibly thin, abort with
   `BLOCKED` and a summary — do not paper over a weak design with code.
 
@@ -67,6 +71,8 @@ Implementer), and ship it without waiting for human review. CI is the gate.
 - Hand off to `/implementer` for `$STORY_ID`. Run the Extended TDD Ralph
   loop until `<promise>STORY_COMPLETE</promise>` AND the targeted suite is
   fully green. Per-iteration commits are expected.
+- **Audit log:** Append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+  noting `implementer`, story id, branch, and timestamp.
 - The linear-sync stop-hook will nudge for each unsynced commit. Honour it:
   post `save_comment` with the contract from `11-linear-sync.mdc` and update
   `.cursor/linear-synced.txt`.

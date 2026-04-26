@@ -20,7 +20,12 @@ describe("pr-validation workflow", () => {
     expect(yml).toContain("run-targeted-tests.sh");
     expect(yml).toMatch(/Resolve story id|story_id/);
     expect(yml).toContain("write-test-result-summary.mjs");
+    expect(yml).toContain("fetch-linear-issue.mjs");
+    expect(yml).toContain("append-test-run-log.mjs");
     expect(yml).toContain("actions/upload-artifact@v4");
+    expect(yml).toContain("reports/test-run-record.json");
+    expect(yml).toContain("reports/linear-issue.json");
+    expect(yml).toContain("docs/test-runs/test-runs.jsonl");
   });
 });
 
@@ -33,7 +38,10 @@ describe("ci workflow (main + container)", () => {
     expect(yml).toContain("push:");
     expect(yml).toContain("run-regression-story-targets.sh");
     expect(yml).toContain("write-test-result-summary.mjs");
+    expect(yml).toContain("append-test-run-log.mjs");
     expect(yml).toContain("MAIN_REGRESSION_SUMMARY.md");
+    expect(yml).toContain("reports/test-run-record.json");
+    expect(yml).toContain("docs/test-runs/test-runs.jsonl");
   });
 
   it("builds container after regression and supports WIF push", () => {
@@ -44,5 +52,13 @@ describe("ci workflow (main + container)", () => {
     expect(yml).toContain("google-github-actions/auth@v2");
     expect(yml).toContain("GCP_WORKLOAD_IDENTITY_PROVIDER");
     expect(yml).toContain("GCP_ARTIFACT_REGISTRY");
+  });
+
+  it("supports optional staging deploy + smoke on main", () => {
+    expect(yml).toMatch(/^\s*deploy_staging:/m);
+    expect(yml).toContain("deploy to Cloud Run");
+    expect(yml).toContain("Smoke test staging URL");
+    expect(yml).toContain("/healthz");
+    expect(yml).toContain("/.well-known/oauth-authorization-server");
   });
 });

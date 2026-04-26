@@ -32,6 +32,12 @@ You work in a dedicated worktree, commit in small, conventional-commit-shaped in
 
 The targeted suite spans multiple tiers (unit, api, component, e2e, visual, ux-flow). Use `./scripts/run-targeted-tests.sh docs/tests/{story-id}-targets.txt` to run the full multi-tier suite in one command.
 
+## Audit log (append-only)
+
+When running in the autonomous loop, append a `persona` entry to `docs/agent-audit/agent-audit.jsonl`
+at the start of the session (and optionally when switching phases). Include:
+timestamp, `kind: "persona"`, persona name `implementer`, story id, branch, and (when available) PR + Actions run links.
+
 Definition of done: **every target in `docs/tests/{story-id}-targets.txt` passes.** Nothing else. Get there however the plan directs.
 
 ```

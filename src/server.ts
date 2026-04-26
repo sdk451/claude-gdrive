@@ -13,5 +13,17 @@ export function createApp(): Hono {
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
 
+  app.get("/.well-known/oauth-authorization-server", (c) =>
+    c.json({
+      issuer: "https://example.invalid",
+      authorization_endpoint: "https://example.invalid/oauth/authorize",
+      token_endpoint: "https://example.invalid/oauth/token",
+      jwks_uri: "https://example.invalid/.well-known/jwks.json",
+      response_types_supported: ["code"],
+      subject_types_supported: ["public"],
+      id_token_signing_alg_values_supported: ["RS256"],
+    }),
+  );
+
   return app;
 }
