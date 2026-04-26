@@ -4,6 +4,7 @@ import { z } from "zod";
 import type {
   DriveFilesPort,
   DownloadFileContentParams,
+  GetFileMetadataParams,
   ListFilesParams,
   ReadFileContentParams,
 } from "../drive/drive-files-port.js";
@@ -14,7 +15,7 @@ export type CreateGdriveMcpServerOptions = {
 
 /**
  * Builds the MCP server for one Streamable HTTP session (F-03/F-04).
- * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`).
+ * Registers Drive tools (TOK-23 `search_files`, TOK-24 `read_file_content`, TOK-25 `download_file_content`, TOK-26 `get_file_metadata`).
  */
 export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): McpServer {
   const { driveFiles } = options;
@@ -149,6 +150,38 @@ export function createGdriveMcpServer(options: CreateGdriveMcpServerOptions): Mc
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Drive download failed";
+        return {
+          isError: true as const,
+          content: [{ type: "text" as const, text: message }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_file_metadata",
+    {
+      title: "Get Drive file metadata",
+      description:
+        "Return file name, MIME type, size, modified time, shared flag, and owner display names via Drive `files.get` with explicit `fields`.",
+      inputSchema: {
+        fileId: z.string().min(1).describe("The Drive `fileId` from search results or URLs."),
+      },
+    },
+    async (args) => {
+      try {
+        const params: GetFileMetadataParams = { fileId: args.fileId };
+        const result = await driveFiles.getFileMetadata(params);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Drive metadata failed";
         return {
           isError: true as const,
           content: [{ type: "text" as const, text: message }],

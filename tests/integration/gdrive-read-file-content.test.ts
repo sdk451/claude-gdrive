@@ -77,6 +77,9 @@ describe("TOK-24 read_file_content integration (stubbed Drive)", () => {
       async downloadFileContent() {
         throw new Error("downloadFileContent not used in this test");
       },
+      async getFileMetadata() {
+        throw new Error("getFileMetadata not used in this test");
+      },
     };
 
     const app = createApp({ driveFiles: stub });
