@@ -80,7 +80,7 @@ pnpm dev
 
 Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `SESSION_SECRET` first (see [`env.example`](env.example)). The process exits on boot with a one-line error if any are missing or `SESSION_SECRET` is not 64 hex digits.
 
-See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/) for architecture, constitution, and workflow.
+See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/) for architecture, constitution, and workflow. **Local run (Node vs Docker), ports, and Inspector URL:** [`docs/local-development.md`](docs/local-development.md).
 
 ## Configuration & secrets
 
