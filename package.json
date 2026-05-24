@@ -27,7 +27,7 @@
     "inspector:validate": "bash scripts/mcp-inspector-validate.sh"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.0",
+    "@hono/node-server": "^2.0.3",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@sentry/node": "^10.50.0",
     "hono": "^4.6.14",
