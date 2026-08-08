@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "mcpServers": {
+    "allow": [
+      "serena",
+      "context-mode",
+      "plugin_context-mode_context-mode",
+      "shadcn",
+      "linear"
+    ]
+  },
+  "write": {
+    "containToProjectRoot": true,
+    "protectedGlobs": [
+      "**/.env",
+      "**/.env.*",
+      "**/secrets/**",
+      "**/.git/**",
+      "**/.ssh/**",
+      "**/.aws/**",
+      "**/.credentials.json",
+      "**/id_rsa*",
+      "**/*.pem"
+    ],
+    "selfModificationGlobs": [
+      "**/.claude/settings.json",
+      "**/.claude/settings.local.json",
+      "**/.claude/permissions-policy.json",
+      "**/.cursor/hooks/**"
+    ]
+  },
+  "shell": {
+    "allowedHeads": [
+      "git",
+      "gh",
+      "npm",
+      "npx",
+      "pnpm",
+      "yarn",
+      "corepack",
+      "node",
+      "python",
+      "python3",
+      "py",
+      "uv",
+      "uvx",
+      "pip",
+      "pip3",
+      "pytest",
+      "ruff",
+      "docker",
+      "make",
+      "cargo",
+      "go",
+      "terraform",
+      "tsc",
+      "jest",
+      "vitest",
+      "echo",
+      "cat",
+      "head",
+      "tail",
+      "ls",
+      "pwd",
+      "wc",
+      "grep",
+      "rg",
+      "find",
+      "test",
+      "which",
+      "command",
+      "sort",
+      "uniq",
+      "cut",
+      "sed",
+      "awk",
+      "jq",
+      "mkdir",
+      "touch",
+      "cp",
+      "mv",
+      "diff",
+      "date",
+      "printf",
+      "true",
+      "sleep",
+      "Get-ChildItem",
+      "Get-Content",
+      "Get-Command",
+      "Test-Path",
+      "Select-String",
+      "Write-Output",
+      "Write-Host",
+      "Join-Path",
+      "Resolve-Path",
+      "Measure-Object"
+    ],
+    "deniedPatterns": [
+      "rm\\s+-rf\\s+[/~]",
+      "\\bsudo\\b",
+      "git\\s+push\\s+.*(--force|-f)\\b",
+      "git\\s+reset\\s+--hard\\s+origin",
+      "curl\\s+[^|]*\\|\\s*(ba)?sh",
+      "wget\\s+[^|]*\\|\\s*(ba)?sh",
+      "\\bchmod\\s+777\\b",
+      "Remove-Item\\s+.*-Recurse.*\\s[A-Za-z]:\\\\?\\s*$",
+      "Set-ExecutionPolicy",
+      "\\bnpm\\s+publish\\b",
+      "\\bdocker\\s+system\\s+prune\\b",
+      "git\\s+worktree\\s+add\\b",
+      "git\\s+worktree\\s+remove\\b",
+      "git\\s+worktree\\s+prune\\b"
+    ],
+    "denyGuidance": {
+      "git\\s+worktree\\s+add\\b": "use `node scripts/worktree.cjs create <story-id>` - it enforces the concurrency cap, registers the serena project and refreshes the graph",
+      "git\\s+worktree\\s+remove\\b": "use `node scripts/worktree.cjs remove <story-id>` - it checks the branch is merged and releases the serena handle first"
+    }
+  },
+  "escalation": {
+    "consecutiveDenyCeiling": 5
+  }
+}
