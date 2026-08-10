@@ -1,16 +1,15 @@
 "use strict";
 /**
  * Runs a bash hook script with hook JSON on stdin and forwards stdout/stderr.
- * Use this from hooks.json instead of calling bash/ps1 directly to avoid Windows
- * console flash (windowsHide) and to resolve Git Bash when "bash" is not on PATH.
+ * Audit: see audit-lib.cjs (compact flush on agent stop vs verbose per hook).
  *
  * Usage: node .cursor/hooks/run-hook.cjs <path-to-script.sh>
- * TypeScript twin: .cursor/hooks/wrappers.ts (Node 22+: --experimental-strip-types)
- * Working directory should be the workspace root (Cursor default for project hooks).
  */
 const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+
+const audit = require("./audit-lib.cjs");
 
 const scriptArg = process.argv[2];
 if (!scriptArg) {
@@ -34,52 +33,6 @@ try {
   input = "";
 }
 
-function safeAppendAudit(line) {
-  try {
-    const outDir = path.resolve(process.cwd(), "reports");
-    fs.mkdirSync(outDir, { recursive: true });
-    const outPath = path.join(outDir, "agent-audit.jsonl");
-    fs.appendFileSync(outPath, line + "\n", "utf8");
-  } catch {
-    // Never break hooks because audit logging failed.
-  }
-}
-
-function inferPhaseFromInput(raw) {
-  try {
-    const obj = JSON.parse(String(raw || ""));
-    // Cursor hook payloads vary; try multiple common keys.
-    return (
-      obj?.hook_event ||
-      obj?.hookEvent ||
-      obj?.event ||
-      obj?.hook?.event ||
-      obj?.hook?.name ||
-      ""
-    );
-  } catch {
-    return "";
-  }
-}
-
-const branchName = (() => {
-  try {
-    const res = spawnSync("git", ["branch", "--show-current"], {
-      encoding: "utf8",
-      windowsHide: true,
-      env: process.env,
-      cwd: process.cwd(),
-      maxBuffer: 1024 * 1024,
-    });
-    return String(res.stdout || "").trim();
-  } catch {
-    return "";
-  }
-})();
-
-const storyMatch = branchName.match(/([A-Z]+-\d+)/);
-const storyId = storyMatch ? storyMatch[1] : "";
-
 const isWin = process.platform === "win32";
 
 function findBash() {
@@ -91,25 +44,90 @@ function findBash() {
   }
   const pf = process.env.ProgramFiles || "";
   const pf86 = process.env["ProgramFiles(x86)"] || "";
+  const localAppData = process.env.LOCALAPPDATA || "";
+  const userProfile = process.env.USERPROFILE || "";
   const candidates = [
     path.join(pf, "Git", "bin", "bash.exe"),
     path.join(pf86, "Git", "bin", "bash.exe"),
+    // winget / scoop / manual installs
+    path.join(pf, "Git", "usr", "bin", "bash.exe"),
+    path.join(pf86, "Git", "usr", "bin", "bash.exe"),
+    // Scoop default: C:\Users\<user>\scoop\apps\git\current\bin\bash.exe
+    path.join(userProfile, "scoop", "apps", "git", "current", "bin", "bash.exe"),
+    // Git portable (common enterprise install)
+    "C:\\PortableGit\\bin\\bash.exe",
+    // Windows Subsystem for Linux (bash.exe on PATH)
+    path.join(localAppData, "Microsoft", "WindowsApps", "bash.exe"),
   ];
   for (const c of candidates) {
     if (c && fs.existsSync(c)) {
       return c;
     }
   }
+  // Last resort: hope bash is on PATH (e.g. WSL, MSYS2, conda)
   return "bash";
 }
 
 const bash = findBash();
-const res = spawnSync(bash, [scriptPath], {
+function repoLocalGitEnv() {
+  const env = { ...process.env };
+  const envPath = path.resolve(process.cwd(), ".cursor", "ide-git-env.json");
+  let editor = "";
+  let gitCommand = "";
+  try {
+    const cfg = JSON.parse(fs.readFileSync(envPath, "utf8"));
+    editor = String(cfg.editorCommand || "").trim();
+    gitCommand = String(cfg.gitCommand || "").trim();
+  } catch {
+    editor = "";
+    gitCommand = "";
+  }
+  if (gitCommand && fs.existsSync(gitCommand)) {
+    const gitDir = path.dirname(gitCommand);
+    const pathKey = Object.prototype.hasOwnProperty.call(env, "Path") ? "Path" : "PATH";
+    env[pathKey] = `${gitDir}${path.delimiter}${env[pathKey] || ""}`;
+    env.KIT_GIT = gitCommand;
+  }
+  if (!editor) {
+    try {
+      const localEditor = spawnSync("git", ["config", "--local", "--get", "core.editor"], {
+        encoding: "utf8",
+        windowsHide: true,
+        cwd: process.cwd(),
+      });
+      editor = (localEditor.stdout || "").trim();
+    } catch {
+      editor = "";
+    }
+  }
+  if (editor) {
+    env.GIT_EDITOR = editor;
+    env.VISUAL = editor;
+    env.EDITOR = editor;
+    const count = Number.parseInt(env.GIT_CONFIG_COUNT || "0", 10) || 0;
+    env[`GIT_CONFIG_KEY_${count}`] = "core.editor";
+    env[`GIT_CONFIG_VALUE_${count}`] = editor;
+    env[`GIT_CONFIG_KEY_${count + 1}`] = "sequence.editor";
+    env[`GIT_CONFIG_VALUE_${count + 1}`] = editor;
+    env.GIT_CONFIG_COUNT = String(count + 2);
+  }
+  return env;
+}
+
+// On Windows, convert C:\foo\bar to /c/foo/bar for Git Bash compatibility
+function toUnixPath(p) {
+  if (!isWin) return p;
+  return p.replace(/^([A-Za-z]):[\\/]/, (_, d) => `/${d.toLowerCase()}/`).replace(/\\/g, "/");
+}
+
+const bashScriptPath = isWin ? toUnixPath(scriptPath) : scriptPath;
+const t0 = Date.now();
+const res = spawnSync(bash, [bashScriptPath], {
   input,
   encoding: "utf8",
   maxBuffer: 50 * 1024 * 1024,
   windowsHide: true,
-  env: process.env,
+  env: repoLocalGitEnv(),
   cwd: process.cwd(),
 });
 
@@ -120,24 +138,18 @@ if (res.stderr) {
   process.stderr.write(res.stderr);
 }
 
-safeAppendAudit(
-  JSON.stringify({
-    schema: "gdrive.agentAudit.v1",
-    timestamp: new Date().toISOString(),
-    kind: "hook",
-    hook: {
-      script: path.relative(process.cwd(), scriptPath).replace(/\\/g, "/"),
-      runner: ".cursor/hooks/run-hook.cjs",
-      phase: inferPhaseFromInput(input),
-      exitCode: res.status === null ? 1 : res.status,
-    },
-    context: {
-      cwd: process.cwd().replace(/\\/g, "/"),
-      storyId,
-      branch: branchName,
-    },
-  }),
-);
+try {
+  audit.recordShellHook({
+    scriptPath,
+    exitCode: res.status === null ? 1 : res.status,
+    durationMs: Date.now() - t0,
+    stdinRaw: input,
+    stdout: res.stdout || "",
+    stderr: res.stderr || "",
+  });
+} catch {
+  /* never break hooks for audit failures */
+}
 
 const code = res.status === null ? 1 : res.status;
 process.exit(code);

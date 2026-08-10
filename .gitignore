@@ -31,3 +31,6 @@ coverage/
 .DS_Store
 Thumbs.db
 
+
+# permission gate audit trail (local evidence, not source)
+.cursor/hooks/logs/
