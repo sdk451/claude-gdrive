@@ -162,6 +162,27 @@ function ensureLanguages(ymlPath, root) {
   return { ok: true, changed: true, languages: langs };
 }
 
+// A worktree shares its branch's tracked files. Rewriting project_name there to
+// keep it distinct from the canonical checkout therefore dirties a TRACKED file,
+// and the rename gets committed - which is exactly what happened: the canonical
+// autonomous-swe-kit repo shipped project_name
+// "autonomous-swe-kit__execution-substrate" to master, so the source repo
+// identified itself as one of its own worktrees.
+//
+// The name only affects activate-by-name disambiguation; registration and symbol
+// search work off the path either way. A shared name is a much smaller problem
+// than poisoning the repository, so when project.yml is tracked we leave it alone
+// and say so.
+function isTracked(root, relPath) {
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', relPath],
+      { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // The worktree inherits .serena/project.yml from the branch, but project_name must
 // be unique or serena will collide it with the canonical checkout.
 function ensureProjectYml(worktree, canonical) {
@@ -180,7 +201,12 @@ function ensureProjectYml(worktree, canonical) {
     }
   }
   let text = fs.readFileSync(file, 'utf8');
-  if (/^project_name:/m.test(text)) {
+  const tracked = isTracked(worktree, '.serena/project.yml');
+  let effectiveName = name;
+  if (tracked) {
+    const current = /^project_name:\s*"?([^"\n]*)"?/m.exec(text);
+    effectiveName = current ? current[1] : name;
+  } else if (/^project_name:/m.test(text)) {
     text = text.replace(/^project_name:.*$/m, 'project_name: "' + name + '"');
   } else {
     text = 'project_name: "' + name + '"\n' + text;
@@ -188,8 +214,9 @@ function ensureProjectYml(worktree, canonical) {
   fs.writeFileSync(file, text, 'utf8');
 
   const langs = ensureLanguages(file, worktree);
-  if (!langs.ok) return { ok: true, name, warning: 'languages: ' + langs.reason };
-  return { ok: true, name, languagesAdded: langs.changed ? langs.languages : null };
+  const out = { ok: true, name: effectiveName, sharedName: tracked };
+  if (!langs.ok) return { ...out, warning: 'languages: ' + langs.reason };
+  return { ...out, languagesAdded: langs.changed ? langs.languages : null };
 }
 function register(dir) {
   const root = repoRoot(dir);
@@ -251,4 +278,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { register, deregister, status, ensureLanguages, detectLanguages, isWorktree, repoRoot, canonicalRoot, samePath, readProjects };
+module.exports = { register, deregister, status, ensureLanguages, detectLanguages, isTracked, isWorktree, repoRoot, canonicalRoot, samePath, readProjects };

@@ -8,6 +8,8 @@ const path = require('node:path');
 
 const { ensureLanguages, detectLanguages } = require('../serena/serena-project.cjs');
 const { shouldPatch } = require('../serena/patch-terraform-arm64.cjs');
+const { isTracked, register } = require('../serena/serena-project.cjs');
+const { execFileSync } = require('node:child_process');
 
 function tmpProject(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serena-test-'));
@@ -60,4 +62,36 @@ test('terraform patch applicability is platform-gated, not arch-gated', () => {
   // Node on a Windows ARM host is often an x64 build under emulation and cannot
   // see the host arch, so the patcher must not depend on process.arch.
   assert.equal(shouldPatch(), process.platform === 'win32');
+});
+
+// --------------------------------------------- never rewrite a tracked project.yml
+
+function gitRepo(files) {
+  const dir = tmpProject(files);
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 't'], { cwd: dir });
+  return dir;
+}
+
+test('isTracked distinguishes committed files from untracked ones', () => {
+  const dir = gitRepo({ 'a.ts': '', '.serena/project.yml': 'project_name: "orig"\n' });
+  assert.equal(isTracked(dir, '.serena/project.yml'), false);
+  execFileSync('git', ['add', '.serena/project.yml'], { cwd: dir });
+  execFileSync('git', ['commit', '-qm', 'x'], { cwd: dir });
+  assert.equal(isTracked(dir, '.serena/project.yml'), true);
+});
+
+test('a TRACKED project.yml keeps its name, so the rename cannot be committed', () => {
+  // Regression: the canonical autonomous-swe-kit repo shipped project_name
+  // "autonomous-swe-kit__execution-substrate" to master because a worktree
+  // registration rewrote the tracked file and the change was committed.
+  const dir = gitRepo({ 'a.ts': '', '.serena/project.yml': 'project_name: "orig"\nlanguages:\n- typescript\n' });
+  execFileSync('git', ['add', '-A'], { cwd: dir });
+  execFileSync('git', ['commit', '-qm', 'x'], { cwd: dir });
+  const before = fs.readFileSync(path.join(dir, '.serena', 'project.yml'), 'utf8');
+  register(dir);
+  const after = fs.readFileSync(path.join(dir, '.serena', 'project.yml'), 'utf8');
+  assert.match(after, /project_name: "orig"/);
+  assert.equal(before, after);
 });

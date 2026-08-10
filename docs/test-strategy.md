@@ -1,83 +1,270 @@
----
-title: Test Strategy — Google Drive Cowork Connector
-project: gdrive-cowork-connector
-status: draft
-date: 2026-04
+# Test Strategy — {project_name}
+
+Generated during `/foundation-cicd`. Customise thresholds and tool choices here.
+CI workflows in `.github/workflows/` must match the scripts listed in this file.
+
 ---
 
 ## Test pyramid
 
-| Tier                      | Tooling                                                             | When                              | Coverage target                                                                           |
-| ------------------------- | ------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- |
-| Unit                      | **Vitest**                                                          | every push, every PR              | ≥ 80% lines on changed files; ≥ 70% project-wide                                          |
-| Contract / protocol       | **Vitest** + MCP SDK in-process client                              | every PR (targeted), nightly full | every MCP method (`initialize`, `tools/list`, `tools/call`) and every tool's input schema |
-| Integration               | **Vitest** + Drive API stubs (`nock` or `msw`)                      | every PR (targeted)               | each tool → Drive endpoint mapping                                                        |
-| Live integration (canary) | **Vitest** + real Drive API on a dedicated test Workspace           | nightly + pre-release             | top 5 tools end-to-end                                                                    |
-| End-to-end (connector)    | **MCP Inspector** + ngrok/Cloudflare Tunnel + manual prompt scripts | per release                       | OAuth flow, search→read→create flow                                                       |
-| Security                  | `npm audit --omit=dev`, `gitleaks`, `trivy`                         | every PR + weekly                 | no high/critical unwaived                                                                 |
+| Tier | Tool | Target coverage | When runs | Notes |
+|------|------|----------------|-----------|-------|
+| Unit | **Vitest** + coverage-v8 | 80% lines/branches | PR + main | Pure logic, no I/O |
+| API / Integration | **Supertest** + **Testcontainers** | 70% of endpoints | PR + main | Real DB in Docker |
+| Component | **RTL** + **Storybook test-runner** | All primitives | PR + main (UI PRs) | Render + a11y per story |
+| E2E | **Playwright** | Critical user flows | PR + main | Cross-browser |
+| Visual regression | Playwright `toHaveScreenshot()` | 100% primitives + key routes × theme × breakpoint | PR (UI changes) | Snapshots committed |
+| Storybook visual | `@storybook/test-runner --hooks=./visual-regression.js` | All stories | PR (UI changes) | Story-level screenshots where configured |
+| Accessibility | `@axe-core/playwright` | Every page route, WCAG 2.1 AA | PR (UI changes) | Zero new violations |
+| Lighthouse | Lighthouse CI | LCP < 2.5s, CLS < 0.1 | PR/main for key routes | Performance budget |
 
-There is no UI surface in v1, so Playwright / visual regression is **out of scope**. If a UI ships in v2, append the relevant Playwright + visual baseline tier here.
+---
 
-## Targeted-test discipline
+## Story TDD loop
 
-- Each story declares its impacted test targets in `docs/tests/<story-id>-targets.txt`. The file lists test file globs, one per line.
-- The `verify-completion-promise` hook is the only way for the implementer to claim `STORY_COMPLETE`. The hook runs `scripts/run-targeted-tests.sh` against the story's targets file and only emits the completion promise when every target is green.
-- Targeted tests are a **subset** of CI's full suite; they are what the implementer iterates against locally and in `pre-merge` checks. The PR-validation workflow runs them first and fails fast.
+Story implementation uses vertical TDD, not horizontal test batching.
 
-## CI tiering
+- Tess writes `docs/tests/<story-id>.md` as the test architecture: applicable tiers, public interfaces, AC mapping, boundary mocks/fakes, behavior slice order, and the first tracer bullet.
+- Cody executes one behavior slice at a time: add one behavior test, prove RED for the expected reason, implement the minimal code to make it GREEN, append the concrete target, then move to the next slice.
+- Tests should verify observable behavior through public interfaces. Avoid testing private methods, internal collaborators, call order, or implementation-only data shape.
+- Mock only system boundaries: external APIs, time/randomness, filesystem, and infrastructure that cannot be exercised cheaply. Prefer real project code paths and test containers for owned behavior.
+- After all slices are green, run a post-green refactor review for duplication, shallow modules, long methods, feature envy, and test coupling. Rerun targeted tests after each refactor step.
+- The story test report must include the tracer bullet, red/green evidence for each behavior slice, the refactor review, progression evidence, and regression membership.
 
-Mirrors `docs/environments.md` CI/CD section:
+---
 
-- **PR validation** (`pr-validation.yml`): lint + typecheck + unit (**JSON + JUnit + Markdown summary**) + story **targeted** suite (resolved from branch name) + markdown lint. Uploads artifact `test-results-pr-<#>-<STORY>`. Required for merge.
-- **Main CI** (`ci.yml`): on every **push to `main`**, full default Vitest tree plus **all** `docs/tests/TOK-*-targets.txt` files (`scripts/ci/run-regression-story-targets.sh`), then **Docker build** (and **Artifact Registry push** when `GCP_*` secrets are set). Artifact `regression-main-<sha>` includes `MAIN_REGRESSION_SUMMARY.md`.
-- **Main CI / deploy** (`ci.yml`, future): full integration + container build + staging deploy + staging smoke (see `docs/environments.md`).
-- **Release** (`release.yml`): on **tag** `v*.*.*`, optional **prod promote** (digest of `GCP_ARTIFACT_REGISTRY:${GITHUB_SHA}`) + **prod smoke** when GCP secrets are set; full “promote → regression → fix PR if red” train vision remains in [Testing artifacts & regression](testing-artifacts-and-regression.md#release-train-vision).
-- **Nightly** (`nightly.yml`, optional): live-integration canary against a test Workspace; on failure it opens a Linear issue.
-- **Security** (`security.yml`): dependency / secret / container scans on PR and weekly.
+## Regression scope — the four tiers
 
-### Where to read test results (human-readable)
+Regression is tiered by event. Running the whole suite after every story makes an epic's
+test cost grow with the number of stories in it, and buys nothing: the same tests pass
+again for the same reason.
 
-1. Open the **GitHub Actions** run for the PR or `main` push.
-2. Download the **artifact** (PR: `test-results-pr-…`; main: `regression-main-…`).
-3. Open **`STORY_TEST_SUMMARY.md`** or **`MAIN_REGRESSION_SUMMARY.md`** — tables list each Vitest case; logs include the targeted runner output and (on `main`) aggregated story-target logs.
+| Event | Command | Suites | Regression targets |
+| --- | --- | --- | --- |
+| Red-green slice | `--scope slice` | `test:unit` | none — the story's own tests are the point |
+| Story close | `--scope story` | `test:unit`, `test:integration`, `test` | this story's targets + smoke + the epic's areas |
+| Epic close | `--scope epic --epic-close` | adds `test:component`, `test:e2e` | Tess's risk-selected subset |
+| Promotion / release | `--scope release` | everything, incl. `test:visual`, `test:a11y` | all |
 
-Machine-readable: **`vitest-unit.json`** (same artifact) for dashboards or merge gates.
+**Escalation outranks narrowing.** A dependency or build-config change (lockfile,
+`Dockerfile`, `tsconfig`), or a repo with no recorded full pass, forces the full suite
+regardless of what was requested. The resolver prints the scope and the reason on every run.
 
-Full narrative: [`docs/testing-artifacts-and-regression.md`](testing-artifacts-and-regression.md).
+**Out-of-scope suites are recorded as `skip` with a reason, never omitted and never
+counted as passing.** A report that says twelve suites green must mean twelve suites ran.
 
-### Regression vs story-targeted tests
+There is deliberately **no story-count ceiling by default**. Full regression is a promotion
+event, not a calendar one. A team that wants a safety net sets `maxStoriesBetweenFull` and
+gets an escalation when the count is reached.
 
-- **Default regression:** every merged file matching `tests/**/*.test.ts` runs on each PR (`pnpm test` / `test:unit:ci`) and on `main` (`ci.yml` regression job).
-- **Story contract:** `docs/tests/<STORY>-targets.txt` lists the Vitest paths the **implementer loop** must green before `STORY_COMPLETE`. Place new tests under `tests/unit/`, `tests/api/`, or `tests/e2e/` per tier (see `tests/README.md`).
-- **Promotion:** merging to `main` is the promotion event — no second copy step. Keep the story targets file pointing at real paths so `run-regression-story-targets.sh` continues to exercise them on every main push.
+## Quality gate — PR (merge criteria)
 
-## Quality gates
+All items must be green before merge:
 
-A change merges only when:
+- [ ] `npm run lint` — zero errors
+- [ ] `npm run typecheck` — zero errors
+- [ ] `npm run test:unit -- --coverage` — all pass, coverage ≥ thresholds
+- [ ] `npm run coverage:check` — threshold enforcement
+- [ ] `npm run test:integration` — all pass (Supertest + Testcontainers, requires Docker)
+- [ ] `npm run test:storybook` — all Storybook stories pass (component tier, UI PRs only)
+- [ ] `npm run test:storybook:visual` — story visual snapshots pass (UI PRs only, when configured)
+- [ ] `npm run test:e2e` — critical flows pass
+- [ ] `npm run test:visual` — Playwright screenshots pass for primitives and key routes (UI PRs only)
+- [ ] `npm run test:a11y` — axe scans pass for every page route touched by the PR
+- [ ] `npm run lhci` — Lighthouse budgets pass for key routes
+- [ ] Secret scan (gitleaks) — no secrets
+- [ ] `tools/check-story-artifacts.sh` — story artefacts present (story PRs only)
 
-1. PR validation is green.
-2. All targeted tests for the story pass.
-3. Reviewer (Rev) sign-off recorded on the PR.
-4. No new high/critical security findings.
-5. If the change touches OAuth, redaction config, or the tool registry, an additional explicit reviewer ack is required (codeowner-style enforcement).
+---
 
-## Test data & isolation
+## Quality gate — main regression
 
-- A dedicated GCP test project hosts the test OAuth client and the test Google Workspace.
-- Live-integration tests use a dedicated test user; never a developer's personal account.
-- Integration stubs (`msw`/`nock`) are the default; live-integration is opt-in via `TEST_LIVE_DRIVE=1`.
+- Full `tests/regression/regression-targets.txt` suite green
+- Coverage must not drop below PR thresholds
+- Auto-deploy to staging on green
 
-## Failure-mode coverage (mandatory)
+---
 
-The original first-party-connector failure mode (connected, no tools) drives mandatory tests:
+## Local full run
 
-- `tools.list.returns_full_set_after_oauth` — explicit test that immediately after OAuth, `tools/list` returns all advertised tools.
-- `tools.list.never_empty_post_init` — chaos test: induce stale session, ensure `tools/list` either returns a 401 challenge or the full set, never `[]`.
-- `oauth.refresh.silent_success` — refresh after access-token expiry does not surface as a user error.
+Single entry point for agents and humans:
 
-These are first-class stories in Epic 0 and are run on every PR, not nightly.
+```bash
+node scripts/run-all-tests.cjs              # all test:* tiers + regression targets (scope: story)
+node scripts/run-all-tests.cjs --scope=full # force the whole accumulated regression list
+node scripts/local-ci-gate.cjs              # docker build + full suite + report verify (merge gate)
+powershell -File scripts/run-all-tests.ps1  # Windows wrapper
+```
 
-## Coverage reports
+Outputs: `reports/test-summary.html` + `reports/test-summary.json`.
 
-- Vitest coverage as `lcov` + HTML, uploaded as a CI artifact and published to a coverage view (Codecov optional).
-- Coverage regression on changed files blocks merge; project-wide regression warns but does not block.
+---
+
+## Test infrastructure hygiene
+
+Killed runs (SIGKILL, IDE stop, OOM) leave Testcontainers containers and orphaned vitest/playwright/node processes.
+
+```bash
+node scripts/reap-test-hygiene.cjs    # Testcontainers + orphan test PIDs for this project
+```
+
+Automatically invoked at start/end of `run-targeted-tests.sh`, `run-all-tests.cjs`, and in `local-ci-gate.cjs` `finally`.
+
+---
+
+## Verify tests actually ran
+
+CI or local runners may exit green while producing **zero** junit tests (timeouts, misconfigured reporters).
+
+```bash
+node scripts/verify-test-reports.cjs --reports-dir reports --min-tests 1
+```
+
+`local-ci-gate.cjs` and GitHub workflows (`pr-ci.yml`, `main-regression.yml`) call this after test steps. **Never treat CI green as pass without checking test counts.**
+
+---
+
+## Setup commands
+
+```bash
+# Unit
+pnpm add -D vitest @vitest/coverage-v8
+
+# API / Integration
+pnpm add -D supertest @types/supertest testcontainers
+
+# Component
+pnpm add -D @testing-library/react @testing-library/user-event jsdom
+pnpm add -D @storybook/test-runner @storybook/addon-a11y
+
+# E2E
+pnpm add -D @playwright/test @axe-core/playwright
+pnpm add -D @lhci/cli
+npx playwright install --with-deps chromium firefox webkit
+```
+
+---
+
+## Testcontainers pattern (API tests)
+
+```typescript
+// tests/integration/setup.ts
+import { PostgreSqlContainer } from "testcontainers"
+
+let pg: PostgreSqlContainer
+
+beforeAll(async () => {
+  pg = await new PostgreSqlContainer("postgres:16-alpine")
+    .withDatabase("testdb")
+    .withUsername("test")
+    .withPassword("test")
+    .start()
+  process.env.DATABASE_URL = pg.getConnectionUri()
+  // run migrations
+  await migrate(process.env.DATABASE_URL)
+}, 60_000)
+
+afterAll(async () => {
+  await pg?.stop()
+})
+```
+
+```typescript
+// tests/integration/users.test.ts
+import supertest from "supertest"
+import { createApp } from "../../src/app"
+
+const app = createApp()
+
+test("POST /api/users creates user", async () => {
+  await supertest(app)
+    .post("/api/users")
+    .send({ email: "test@example.com", name: "Test" })
+    .expect(201)
+    .expect(res => {
+      expect(res.body.id).toBeDefined()
+      expect(res.body.email).toBe("test@example.com")
+    })
+})
+```
+
+---
+
+## Coverage thresholds (enforce in vitest.config.ts)
+
+```typescript
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: "v8",
+      thresholds: {
+        lines: 80,
+        branches: 80,
+        functions: 80,
+        statements: 80,
+      },
+      exclude: ["**/*.config.*", "**/generated/**", "**/*.d.ts"],
+    },
+  },
+})
+```
+
+---
+
+## Visual regression policy
+
+- Snapshots committed to `tests/visual/snapshots/`
+- Breakpoints: 320px (mobile), 768px (tablet), 1280px (desktop)
+- Themes: light + dark
+- Key page routes must have route-level screenshots, not only component snapshots.
+- Update command: `npx playwright test --update-snapshots` (reviewed in PR diff)
+- Drift threshold: 0% — any pixel change fails the check. Use `maxDiffPixelRatio: 0.001` only for animated elements.
+
+---
+
+## Accessibility policy
+
+- Every page route touched by a UI story gets an `@axe-core/playwright` test.
+- Violations are blocking unless documented as pre-existing and tracked.
+- Focus order, keyboard operation, names/roles, and error announcements are verified in E2E or Storybook interaction tests.
+
+---
+
+## Lighthouse policy
+
+- Key routes: home, auth entry, primary dashboard/list, primary detail, and checkout/payment if present.
+- Budgets: LCP < 2.5s and CLS < 0.1.
+- CI uses `npm run lhci` once routes are deployed or locally served.
+
+---
+
+## Flaky test policy
+
+- Flaky definition: failure rate >1% over 20 runs
+- Auto-quarantine: move to `tests/quarantine/`, open tracking issue
+- Investigation deadline: 5 working days
+- Resolution options: fix or formally remove (never silently skip)
+- Quarantined tests run in separate CI job (reporting only, not gate)
+
+---
+
+## Script reference (`package.json`)
+
+```json
+{
+  "scripts": {
+    "test:unit":        "vitest run",
+    "test:unit:watch":  "vitest",
+    "test:integration": "vitest run tests/integration",
+    "test:storybook":   "test-storybook",
+    "test:e2e":         "playwright test",
+    "test:visual":      "playwright test tests/visual",
+    "test:storybook:visual": "test-storybook --hooks=./visual-regression.js",
+    "test:a11y":        "playwright test tests/a11y",
+    "lhci":             "lhci autorun",
+    "coverage:check":   "vitest run --coverage",
+    "coverage:json":    "vitest run --coverage --reporter=json"
+  }
+}
+```
