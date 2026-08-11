@@ -273,10 +273,58 @@ function epicAreas(projectRoot, epicId) {
   }
 }
 
+
+/**
+ * Which suites a scope runs. Lives here rather than in the runner so the tiers
+ * and the opt-in that widens them are testable in one place.
+ */
+const SUITES_BY_SCOPE = {
+  slice: ['test:unit'],
+  story: ['test:unit', 'test:integration', 'test'],
+  epic: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test'],
+  full: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test:visual', 'test:a11y', 'test'],
+  perf: [],
+};
+
+/**
+ * Suites a story may opt into when they ARE its acceptance criteria.
+ *
+ * Deliberately just visual and a11y. Component and e2e are the expensive tiers
+ * and belong to Tess's risk-selected epic close; allowing them here would let
+ * story scope reach the full pyramid, which a test now forbids. `perf` is
+ * absent for a different reason: it has its own scope and NEVER_IN_GATES holds.
+ */
+const INCLUDABLE_SUITES = ['test:visual', 'test:a11y'];
+
+/**
+ * Resolve a --include request against a base scope.
+ *
+ * Additive only: anything the scope already runs is dropped from the result
+ * rather than duplicated, and nothing here can ever remove a suite.
+ *
+ * @param {{requested?:string, baseSuites:string[]}} o
+ * @returns {{includes:string[], rejected:string[], suites:string[]}}
+ */
+function resolveIncludes(o) {
+  const base = Array.isArray(o.baseSuites) ? o.baseSuites : [];
+  const asked = String(o.requested || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const rejected = asked.filter((s) => !INCLUDABLE_SUITES.includes(s));
+  const includes = asked.filter((s) => INCLUDABLE_SUITES.includes(s) && !base.includes(s));
+
+  return { includes, rejected, suites: base.concat(includes) };
+}
+
 module.exports = {
   SCOPES,
   TIERS,
   NEVER_IN_GATES,
+  SUITES_BY_SCOPE,
+  INCLUDABLE_SUITES,
+  resolveIncludes,
   markerExpression,
   epicAreas,
   LEDGER_REL,
