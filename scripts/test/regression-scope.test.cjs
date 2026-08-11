@@ -222,3 +222,57 @@ test('epicAreas returns [] rather than throwing when nothing is declared', () =>
   fs.writeFileSync(path.join(p, 'docs', 'test-areas.json'), JSON.stringify({ E4: ['auth', 'routing'] }));
   assert.deepEqual(epicAreas(p, 'E4'), ['auth', 'routing']);
 });
+
+// --- story-focus opt-in ------------------------------------------------------
+
+const {
+  resolveIncludes: RI, SUITES_BY_SCOPE: SBS, INCLUDABLE_SUITES: INC,
+} = require('../lib/regression-scope.cjs');
+
+test('story scope does not run visual or a11y by default', () => {
+  assert.ok(!SBS.story.includes('test:visual'));
+  assert.ok(!SBS.story.includes('test:a11y'));
+});
+
+test('a UI story can opt into visual and a11y at story scope', () => {
+  const r = RI({ requested: 'test:visual,test:a11y', baseSuites: SBS.story });
+  assert.deepStrictEqual(r.includes, ['test:visual', 'test:a11y']);
+  assert.deepStrictEqual(r.rejected, []);
+  assert.ok(r.suites.includes('test:visual'));
+  assert.ok(r.suites.includes('test:a11y'));
+});
+
+test('OPT-IN IS ADDITIVE ONLY: it never removes a suite the scope requires', () => {
+  const r = RI({ requested: 'test:visual', baseSuites: SBS.story });
+  for (const s of SBS.story) assert.ok(r.suites.includes(s), `${s} must survive`);
+});
+
+test('opt-in cannot reach the full pyramid from story scope', () => {
+  const r = RI({ requested: INC.join(','), baseSuites: SBS.story });
+  const missing = SBS.full.filter((s) => !r.suites.includes(s));
+  assert.ok(missing.length > 0, 'story + every includable must still be short of full');
+});
+
+test('PERF IS NOT INCLUDABLE: it has its own scope', () => {
+  assert.ok(!INC.includes('perf'));
+  assert.ok(!INC.includes('test:perf'));
+  const r = RI({ requested: 'perf', baseSuites: SBS.story });
+  assert.deepStrictEqual(r.includes, []);
+  assert.deepStrictEqual(r.rejected, ['perf']);
+});
+
+test('an unknown suite is rejected rather than silently ignored', () => {
+  const r = RI({ requested: 'test:chaos', baseSuites: SBS.story });
+  assert.deepStrictEqual(r.rejected, ['test:chaos']);
+});
+
+test('asking for something the scope already runs is a no-op, not a duplicate', () => {
+  const r = RI({ requested: 'test:e2e', baseSuites: SBS.epic });
+  assert.deepStrictEqual(r.includes, []);
+  assert.strictEqual(r.suites.filter((s) => s === 'test:e2e').length, 1);
+});
+
+test('no --include leaves the scope exactly as resolved', () => {
+  const r = RI({ requested: '', baseSuites: SBS.story });
+  assert.deepStrictEqual(r.suites, SBS.story);
+});

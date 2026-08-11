@@ -105,6 +105,9 @@ function reapHygiene() {
 /** @type {{ name: string, command: string, status: 'pass'|'fail'|'skip', durationMs: number, output: string }[]} */
 const results = [];
 
+/** Suites added by --include (story-focus opt-in), recorded in the JSON summary. */
+let summaryIncludes = [];
+
 function readPackageScripts() {
   const pkgPath = path.join(projectRoot, 'package.json');
   if (!fs.existsSync(pkgPath)) return {};
@@ -148,6 +151,7 @@ function writeReports(startedAt) {
     passed: results.filter((r) => r.status === 'pass').length,
     failed: results.filter((r) => r.status === 'fail').length,
     skipped: results.filter((r) => r.status === 'skip').length,
+    storyFocusIncludes: summaryIncludes,
     suites: results,
   };
   fs.writeFileSync(jsonOut, JSON.stringify(summary, null, 2) + '\n', 'utf8');
@@ -207,14 +211,10 @@ function main() {
   //            and the epic's areas
   //   epic     epic close: adds component and e2e, Tess's risk-selected subset
   //   release  promotion: everything, including visual and a11y
-  const SUITES_BY_SCOPE = {
-    slice: ['test:unit'],
-    story: ['test:unit', 'test:integration', 'test'],
-    epic: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test'],
-    full: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test:visual', 'test:a11y', 'test'],
-    perf: [],
-  };
-  const ALL_SUITES = SUITES_BY_SCOPE.full;
+  // The tier table lives in scripts/lib/regression-scope.cjs so the tiers and
+  // the opt-in that widens them cannot drift apart. Two copies of this table is
+  // the bug class that made story and full the same run.
+  const ALL_SUITES = scope.SUITES_BY_SCOPE.full;
 
   // Scope must be resolved BEFORE the suite loop; it used to be resolved after,
   // which is why it could not influence which suites ran.
@@ -232,7 +232,40 @@ function main() {
     `\n[regression] scope=${resolved.scope}${resolved.escalated ? ' (ESCALATED)' : ''} - ${resolved.reason}`,
   );
 
-  const inScope = SUITES_BY_SCOPE[resolved.scope] || SUITES_BY_SCOPE.story;
+  const baseScope = scope.SUITES_BY_SCOPE[resolved.scope] || scope.SUITES_BY_SCOPE.story;
+
+  // STORY-FOCUS OPT-IN.
+  //
+  // The tiers above are cost defaults, not a statement that visual or a11y never
+  // matter before release. A story whose acceptance criteria ARE the rendered UI
+  // or the accessibility behaviour cannot be called done without them, and Tess
+  // nominates that coverage as the definition of done during test design.
+  //
+  //   npm run test:all -- --scope story --include test:visual,test:a11y
+  //
+  // Constraints that keep this from becoming "run everything, always":
+  //   - additive only; it can never REMOVE a suite the scope already requires
+  //   - each inclusion is echoed with its reason and lands in the JSON summary,
+  //     so a reviewer can see the story opted in and why
+  //   - perf is NOT includable here. It has its own scope (--scope perf) and is
+  //     deliberately absent from every gate; see NEVER_IN_GATES in regression-scope.
+  const includeArg = arg('--include') || process.env.TMK_INCLUDE_SUITES || '';
+  const included = scope.resolveIncludes({ requested: includeArg, baseSuites: baseScope });
+
+  if (included.rejected.length) {
+    console.error(
+      `[regression] --include rejected: ${included.rejected.join(', ')} ` +
+        `(includable: ${scope.INCLUDABLE_SUITES.join(', ')}; perf runs via --scope perf)`,
+    );
+    process.exit(2);
+  }
+  if (included.includes.length) {
+    console.log(
+      `[regression] story-focus opt-in: ${included.includes.join(', ')} added to scope=${resolved.scope}`,
+    );
+  }
+
+  summaryIncludes = included.includes;
 
   let exitCode = 0;
   let ranAny = false;
@@ -248,7 +281,7 @@ function main() {
       });
       continue;
     }
-    if (!inScope.includes(scriptName)) {
+    if (!included.suites.includes(scriptName)) {
       // Recorded as an explicit out-of-scope skip, never as a pass. A reader of
       // this report must be able to tell "did not run" from "ran and was green".
       results.push({
