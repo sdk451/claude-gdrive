@@ -59,6 +59,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # SDLC TOOLING SELF-CHECK
+      #
+      # The scripts under scripts/ orchestrate the agent loop: regression scoping,
+      # the local CI gate, worktree lifecycle. Nothing else in CI executes them -
+      # this workflow calls npm run test:unit and friends directly - so a runtime
+      # error in the tooling is invisible here while breaking every agent run.
+      #
+      # That is exactly what happened: run-all-tests.cjs carried a ReferenceError
+      # that killed every regression run in eleven repos while CI stayed green,
+      # because `node --check` validates syntax and CI never ran the file.
+      #
+      # Fast, hermetic, no network.
+      - name: SDLC tooling self-check
+        run: node --test "scripts/test/**/*.test.cjs"
       - name: Typecheck
         run: pnpm typecheck
 
