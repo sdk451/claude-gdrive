@@ -368,4 +368,17 @@ function main() {
   process.exit(exitCode);
 }
 
-main();
+// The command builders are exported so a runner test can exercise them directly,
+// and the guard below is what makes that safe: `require`-ing this module must NOT
+// run the gate or call process.exit() mid-suite.
+//
+// This was added downstream, then silently removed when a kit sync copied the
+// kit's copy of this file over it - the kit had a bare `main()` and did not know
+// the guard existed. Requiring the module then ran the whole gate and exited 1 in
+// the middle of another suite. It lives here now so the sync propagates it rather
+// than clobbering it.
+module.exports = { regressionTargetCommand, windowsBashPath, shellQuote };
+
+if (require.main === module) {
+  main();
+}
