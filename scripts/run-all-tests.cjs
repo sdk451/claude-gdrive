@@ -252,6 +252,17 @@ function main() {
   const includeArg = arg('--include') || process.env.TMK_INCLUDE_SUITES || '';
   const included = scope.resolveIncludes({ requested: includeArg, baseSuites: baseScope });
 
+  // Ask the library which suites apply, given what this repo actually defines.
+  // A repo with no tiered scripts falls back to the catch-all, and is told so -
+  // "ran the whole suite" and "ran the story tier" are different facts.
+  const chosen = scope.resolveSuites(resolved.scope, Object.keys(scripts));
+  if (chosen.untiered) {
+    console.log(
+      `[regression] this repo defines no tiered test scripts for scope=${resolved.scope}; ` +
+      `falling back to \`npm run ${scope.CATCH_ALL_SUITE}\` - this is an UNTIERED run, not a scoped one.`,
+    );
+  }
+
   if (included.rejected.length) {
     console.error(
       `[regression] --include rejected: ${included.rejected.join(', ')} ` +
@@ -281,7 +292,10 @@ function main() {
       });
       continue;
     }
-    if (!included.suites.includes(scriptName)) {
+    const applies = chosen.untiered
+      ? chosen.suites.includes(scriptName)
+      : included.suites.includes(scriptName) && chosen.suites.concat(included.includes).includes(scriptName);
+    if (!applies) {
       // Recorded as an explicit out-of-scope skip, never as a pass. A reader of
       // this report must be able to tell "did not run" from "ran and was green".
       results.push({
