@@ -278,13 +278,44 @@ function epicAreas(projectRoot, epicId) {
  * Which suites a scope runs. Lives here rather than in the runner so the tiers
  * and the opt-in that widens them are testable in one place.
  */
+// `test` is the CATCH-ALL, and it belongs to `full` alone.
+//
+// It was in `story` and `epic` as a fallback for repos with no tiered scripts.
+// That is exactly backwards in a monorepo: `test` there is `turbo run test`, which
+// runs every package's suite - so story close ran the entire estate while the
+// report claimed a narrow scope. graphene-consumer has no `test:unit` at all, so
+// its story tier resolved to integration plus the whole monorepo.
+//
+// A catch-all cannot be a member of a narrow tier. It is used only when a repo
+// defines nothing else (see resolveSuites below), and then it is honestly
+// reported as an untiered run rather than silently pretending to be scoped.
 const SUITES_BY_SCOPE = {
   slice: ['test:unit'],
-  story: ['test:unit', 'test:integration', 'test'],
-  epic: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test'],
+  story: ['test:unit', 'test:integration'],
+  epic: ['test:unit', 'test:integration', 'test:component', 'test:e2e'],
   full: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test:visual', 'test:a11y', 'test'],
   perf: [],
 };
+
+const CATCH_ALL_SUITE = 'test';
+
+/**
+ * Which suites to run, given the scope and what the repo actually defines.
+ *
+ * If a repo defines none of the tiered scripts, falling back to the catch-all is
+ * better than running nothing - but the caller must be told, because "ran the
+ * whole suite" and "ran the story tier" are different facts and a report that
+ * conflates them is how the over-selection defect hid for weeks.
+ */
+function resolveSuites(scope, definedScripts) {
+  const wanted = SUITES_BY_SCOPE[scope] || SUITES_BY_SCOPE.story;
+  const available = wanted.filter((s) => definedScripts.includes(s));
+  if (available.length) return { suites: available, untiered: false };
+  if (scope !== 'full' && definedScripts.includes(CATCH_ALL_SUITE)) {
+    return { suites: [CATCH_ALL_SUITE], untiered: true };
+  }
+  return { suites: [], untiered: false };
+}
 
 /**
  * Suites a story may opt into when they ARE its acceptance criteria.
@@ -320,6 +351,8 @@ function resolveIncludes(o) {
 
 module.exports = {
   SCOPES,
+  CATCH_ALL_SUITE,
+  resolveSuites,
   TIERS,
   NEVER_IN_GATES,
   SUITES_BY_SCOPE,

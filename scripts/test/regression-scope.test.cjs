@@ -276,3 +276,38 @@ test('no --include leaves the scope exactly as resolved', () => {
   const r = RI({ requested: '', baseSuites: SBS.story });
   assert.deepStrictEqual(r.suites, SBS.story);
 });
+
+
+// ------------------------------------- the catch-all must never join a narrow tier
+
+const { resolveSuites, CATCH_ALL_SUITE, SUITES_BY_SCOPE: BY_SCOPE } = require('../lib/regression-scope.cjs');
+
+test('REGRESSION: story scope never includes the catch-all `test` script', () => {
+  // graphene-consumer defines no test:unit, and its `test` is `turbo run test`,
+  // which runs every package in the monorepo. With `test` in the story tier,
+  // story close ran the entire estate while reporting a narrow scope - which is
+  // the over-selection defect this tiering existed to remove.
+  assert.ok(!BY_SCOPE.story.includes(CATCH_ALL_SUITE), 'story must not carry the catch-all');
+  assert.ok(!BY_SCOPE.epic.includes(CATCH_ALL_SUITE), 'epic must not carry the catch-all');
+  assert.ok(BY_SCOPE.full.includes(CATCH_ALL_SUITE), 'full is where the catch-all belongs');
+});
+
+test('a repo shaped like graphene-consumer runs only integration at story scope', () => {
+  const defined = ['test:integration', 'test:e2e', 'test'];   // no test:unit
+  const r = resolveSuites('story', defined);
+  assert.deepEqual(r.suites, ['test:integration']);
+  assert.equal(r.untiered, false);
+  assert.ok(!r.suites.includes('test'), 'must not fall back to the monorepo-wide script');
+});
+
+test('a repo with NO tiered scripts falls back, and is told it is untiered', () => {
+  const r = resolveSuites('story', ['test']);
+  assert.deepEqual(r.suites, ['test']);
+  assert.equal(r.untiered, true, 'the caller must be able to say so in the report');
+});
+
+test('full scope still runs the catch-all, and is not marked untiered', () => {
+  const r = resolveSuites('full', ['test:unit', 'test']);
+  assert.ok(r.suites.includes('test'));
+  assert.equal(r.untiered, false);
+});
