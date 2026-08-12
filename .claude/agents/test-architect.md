@@ -2,7 +2,7 @@
 name: test-architect
 description: Owns testing strategy, test pyramid, per-story test architecture, behavior slice plans, and post-implementation coverage expansion. Runs in Epic 0 and per story.
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: opus
+model: sonnet
 effort: high
 color: green
 ---
