@@ -88,3 +88,22 @@ test('a valid --include is accepted and reaches the suite loop', () => {
   assert.doesNotMatch(out, /ReferenceError/, out.slice(0, 400));
   assert.doesNotMatch(out, /is not defined/, out.slice(0, 400));
 });
+
+// --------------------------------- requiring the module must not run the gate
+
+test('requiring the runner does not execute it or exit the process', () => {
+  // Regression: a kit sync replaced this file with a copy that had a bare
+  // `main()` and no exports, silently removing a downstream guard. Requiring the
+  // module then ran the whole gate and called process.exit(1) in the middle of
+  // another suite - so an unrelated test file failed with no useful message.
+  //
+  // Exercised in a child process because a process.exit() in-process would take
+  // this test runner down with it, which is precisely the failure being guarded.
+  const r = spawnSync(process.execPath,
+    ['-e', `const m = require(${JSON.stringify(RUNNER)}); process.stdout.write(Object.keys(m).sort().join(','));`],
+    { encoding: 'utf8', timeout: 30000, cwd: fixture() });
+
+  assert.equal(r.status, 0, `requiring the runner exited ${r.status}:\n${r.stderr}`);
+  assert.doesNotMatch(r.stdout, /\[regression\]/, 'requiring the runner executed the gate');
+  assert.equal(r.stdout.trim(), 'regressionTargetCommand,shellQuote,windowsBashPath');
+});
