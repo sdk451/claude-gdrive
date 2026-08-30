@@ -194,3 +194,50 @@ test('the sanctioned tool is allowed', () => {
 test('read-only git worktree list is unaffected', () => {
   assert.equal(call('Bash', { command: 'git worktree list' }).decision, 'allow');
 });
+
+
+// ─────────────────────────────── newline splitting (the bypass) ─────────────
+
+const NL = String.fromCharCode(10);
+
+test('SECURITY: a newline must not hide the command after it', () => {
+  // splitSubcommands split on ; && || and | but NOT on newlines, so
+  // `git status\nrm -rf ~` parsed as ONE subcommand with head `git`, was found
+  // on the allowed list, and the rm was never evaluated. The gate then reported
+  // "all 1 subcommand(s) on the allowed head list" - precise, confident, and
+  // wrong about the count.
+  const heads = splitSubcommands('git status' + NL + 'rm -rf ~').map(headOf);
+  assert.deepEqual(heads, ['git', 'rm']);
+});
+
+test('SECURITY: CRLF separates too', () => {
+  const heads = splitSubcommands('git status\r' + NL + 'rm -rf ~').map(headOf);
+  assert.deepEqual(heads, ['git', 'rm']);
+});
+
+test('a heredoc body is DATA, not commands', () => {
+  // The opposite failure: splitting the body would turn a commit message into
+  // subcommands, and the gate would prompt on prose containing the word `rm`.
+  const cmd = "cat > f << 'EOF'" + NL + 'rm the old file, then find the new one' + NL + 'EOF' + NL + 'git commit -F f';
+  assert.deepEqual(splitSubcommands(cmd).map(headOf), ['cat', 'git']);
+});
+
+test('a command AFTER a heredoc is still evaluated', () => {
+  const cmd = "cat > f << 'EOF'" + NL + 'body' + NL + 'EOF' + NL + 'rm f';
+  assert.deepEqual(splitSubcommands(cmd).map(headOf), ['cat', 'rm']);
+});
+
+test('an unterminated heredoc drops the remainder rather than guessing', () => {
+  const cmd = "cat > f << 'EOF'" + NL + 'body with no terminator' + NL + 'rm -rf ~';
+  const heads = splitSubcommands(cmd).map(headOf);
+  assert.deepEqual(heads, ['cat'], 'must not treat unterminated body as commands');
+});
+
+test('REAL CASE: the commit-message pattern names rm as the reason', () => {
+  // Uses the repo's real policy through evaluate(), which is what the hook calls.
+  const cmd = "cat > .git/MSG.txt << 'EOF'" + NL + 'feat: a change' + NL + 'EOF' + NL +
+              'git commit -F .git/MSG.txt' + NL + 'rm .git/MSG.txt';
+  const r = evaluate({ tool_name: 'Bash', tool_input: { command: cmd } }, POLICY);
+  assert.notEqual(r.decision, 'allow', 'the rm must not be waved through');
+  assert.match(r.reason, /rm/, 'the reason must name the offending subcommand');
+});

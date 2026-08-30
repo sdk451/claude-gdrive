@@ -57,6 +57,36 @@ function isInside(root, target) {
 // Split a shell command into its constituent subcommands. Handles &&, ||, ;, |
 // and command substitution. Returns null when the command cannot be parsed
 // confidently, which the caller must treat as "no opinion" rather than "safe".
+/**
+ * Remove heredoc bodies, leaving the command that opened them.
+ *
+ * `cat > f << 'EOF'` followed by arbitrary text and a terminator is one command
+ * plus data. Splitting the data on newlines would turn prose into subcommands
+ * and make the gate prompt on every multi-line commit message.
+ */
+function stripHeredocs(src) {
+  const open = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/g;
+  let out = src;
+  let m;
+  while ((m = open.exec(src)) !== null) {
+    const tag = m[2];
+    // The body runs from the end of the opening line to a line that is exactly
+    // the terminator. `<<-` permits leading tabs on the terminator.
+    const after = out.indexOf('\n', out.indexOf(m[0]));
+    if (after === -1) continue;
+    const term = new RegExp('^[\\t ]*' + tag + '[\\t ]*$', 'm');
+    const rest = out.slice(after + 1);
+    const hit = term.exec(rest);
+    if (!hit) {
+      // Unterminated heredoc: drop everything after it rather than guess.
+      out = out.slice(0, after);
+      break;
+    }
+    out = out.slice(0, after + 1) + rest.slice(hit.index + hit[0].length);
+  }
+  return out;
+}
+
 function splitSubcommands(command) {
   const src = String(command || '');
   if (!src.trim()) return null;
@@ -74,8 +104,19 @@ function splitSubcommands(command) {
   while ((m = subst.exec(src)) !== null) nested.push(m[1] || m[2] || '');
   flat = flat.replace(subst, ' ');
 
+  // Heredoc bodies are DATA, not commands. Strip them before splitting on
+  // newlines, or a commit message reading "rm the old file" becomes a subcommand
+  // and the gate starts prompting on prose. `cat > f << 'EOF' ... EOF` keeps its
+  // head; the body disappears.
+  flat = stripHeredocs(flat);
+
+  // Newlines separate commands exactly as `;` does. Omitting them meant a
+  // newline HID everything after it: `git status\nrm -rf ~` parsed as ONE
+  // subcommand with head `git`, was found on the allowed list, and the rm was
+  // passed through unexamined. The gate then reported "all 1 subcommand(s) on
+  // the allowed head list" - precise, confident, and wrong about the count.
   const parts = flat
-    .split(/&&|\|\||[;|]/)
+    .split(/&&|\|\||[;|\n\r]/)
     .concat(nested)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -179,6 +220,7 @@ function evaluate(event, policy, projectRoot) {
 }
 
 module.exports = {
+  stripHeredocs,
   evaluate, evaluateShell, evaluateWrite, evaluateMcp,
   splitSubcommands, headOf, isInside, matchesAny, globToRegExp,
   READ_ONLY_TOOLS, WRITE_TOOLS, SHELL_TOOLS,
