@@ -32,7 +32,7 @@ jobs:
       CLOUD_RUN_SERVICE_PROD: ${{ secrets.CLOUD_RUN_SERVICE_PROD }}
     steps:
       - name: Checkout tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Gate (skip when GCP not configured)
         id: gate
