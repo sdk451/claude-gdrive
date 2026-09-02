@@ -34,51 +34,132 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execSync } = require('node:child_process');
+const { readJsonState, writeJsonState } = require('./json-state.cjs');
 
-const SCOPES = ['slice', 'story', 'epic', 'release', 'full', 'perf'];
+const SCOPES = ['slice', 'story', 'epic', 'release', 'full', 'perf', 'docs'];
 
-/**
- * Tier markers. `perf` is deliberately absent from every gate: performance tests
- * measure a machine, not a change. On a contended workstation their variance
- * exceeds the regressions they exist to catch, so gating on them teaches
- * everyone to re-run until green and destroys the signal for the one time it
- * was real. They run on a schedule, on dedicated hardware.
- */
-const TIERS = ['smoke', 'unit', 'contract', 'integration', 'e2e', 'perf'];
-const NEVER_IN_GATES = ['perf'];
+/** Scopes that deliberately run no gating suites. */
+const NON_GATING_SCOPES = ['docs', 'perf'];
+
 const LEDGER_REL = path.join('reports', 'regression-ledger.json');
 
 /** Stories that may merge on the narrow scope before a full pass is forced. */
 // Disabled by default. Full regression is a PROMOTION event, not a calendar one:
 // it runs when a release is cut, not every N stories. A team that wants a
 // story-count ceiling as a safety net sets maxStoriesBetweenFull explicitly.
-const DEFAULT_MAX_STORIES_BETWEEN_FULL = null;
+/**
+ * Stories that may merge on a narrowed scope before a full pass is forced.
+ *
+ * This was `null` (no ceiling), which trusts epic close and release triggers to
+ * be the only things that ever run everything. That is the intended model, and
+ * a ceiling is the backstop for when it does not hold -- a long-running epic, a
+ * release that keeps slipping, a repo where nobody has run a release pass in
+ * weeks. 10 is deliberately loose: it should almost never fire, and when it does
+ * it means the normal triggers have not happened for long enough to be worth
+ * noticing.
+ *
+ * Set to null to disable the ceiling entirely.
+ */
+const DEFAULT_MAX_STORIES_BETWEEN_FULL = 10;
+
+/**
+ * The checkout that owns the ledger.
+ *
+ * A git worktree is the same repository at a different commit, but it starts
+ * with none of the repo's ignored files - and the ledger is ignored
+ * (reports/*.json). So a worktree always looked like a project that had never
+ * recorded a full pass, and resolveScope correctly escalated to full on every
+ * story. The mechanism was working perfectly on false input: every
+ * worktree-based story ran a full sweep, forever, because the evidence of past
+ * full passes does not travel with the checkout.
+ *
+ * A full pass proven in the primary is proven for the worktree, so both read
+ * and write go to the primary. `git rev-parse --git-common-dir` resolves to the
+ * primary's .git even from inside a worktree; its parent is the primary root.
+ *
+ * Falls back to projectRoot when git is unavailable or this is not a worktree,
+ * which is the ordinary case and costs nothing.
+ */
+// A single run-all-tests.cjs invocation resolves this five times over (once to
+// read the ledger for scope resolution, once to read the baseline, twice more
+// inside recordRun's own read-then-write, and once to write the baseline) - all
+// for the same projectRoot and the same answer, since the checkout's relationship
+// to its primary does not change mid-process. Each resolution is a `git
+// rev-parse --git-common-dir` subprocess spawn, so caching per projectRoot turns
+// that into one spawn per run instead of five. Keyed on the exact string passed
+// in (callers are consistent within a process), not a normalised path.
+const _ledgerRootCache = new Map();
+function resolveLedgerRoot(projectRoot) {
+  try {
+    const common = execSync('git rev-parse --git-common-dir', {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (!common) return projectRoot;
+    const abs = path.isAbsolute(common) ? common : path.join(projectRoot, common);
+    const primary = path.dirname(abs);
+    return fs.existsSync(primary) ? primary : projectRoot;
+  } catch {
+    return projectRoot;
+  }
+}
+
+function ledgerRoot(projectRoot) {
+  if (!_ledgerRootCache.has(projectRoot)) {
+    _ledgerRootCache.set(projectRoot, resolveLedgerRoot(projectRoot));
+  }
+  return _ledgerRootCache.get(projectRoot);
+}
+
+/**
+ * Distinct, attributable story ids.
+ *
+ * `unknown` is dropped rather than deduped. A run that cannot say which story it
+ * belongs to is not evidence of a story having been narrowed - counting it
+ * accrues debt attributable to nothing, and it cannot be cleared by identifying
+ * the story later.
+ */
+function distinctStories(list) {
+  return [...new Set((list || []).filter((s) => typeof s === 'string' && s && s !== 'unknown'))];
+}
 
 function readLedger(projectRoot) {
-  try {
-    const raw = fs.readFileSync(path.join(projectRoot, LEDGER_REL), 'utf8');
-    const d = JSON.parse(raw);
-    return {
-      lastFullSha: typeof d.lastFullSha === 'string' ? d.lastFullSha : null,
-      lastFullAt: typeof d.lastFullAt === 'string' ? d.lastFullAt : null,
-      storiesSinceFull: Number.isInteger(d.storiesSinceFull) ? d.storiesSinceFull : 0,
-      narrowedStories: Array.isArray(d.narrowedStories) ? d.narrowedStories : [],
-    };
-  } catch {
+  const d = readJsonState(path.join(ledgerRoot(projectRoot), LEDGER_REL));
+  if (d == null) {
     // No ledger is not "no debt": a project that has never recorded a full pass
     // cannot prove one happened. Treated as maximum debt, which forces full on
     // the first run and establishes the baseline.
     return { lastFullSha: null, lastFullAt: null, storiesSinceFull: Infinity, narrowedStories: [] };
   }
+  const narrowedStories = Array.isArray(d.narrowedStories) ? d.narrowedStories : [];
+  return {
+    lastFullSha: typeof d.lastFullSha === 'string' ? d.lastFullSha : null,
+    lastFullAt: typeof d.lastFullAt === 'string' ? d.lastFullAt : null,
+    // DERIVED, never read from disk. The stored number counted RUNS: recordRun
+    // appended on every passing narrow gate, so re-running one story's gate after
+    // review feedback accrued a fresh "story" each time. graphene_supply's ledger
+    // read 13 with four distinct stories in its own audit trail - E26-S1 counted
+    // four times, E26-S2 four, E27-S1 three - so the ceiling of 10 fired after
+    // roughly three real stories instead of ten, and full regression ran
+    // perhaps three times more often than intended.
+    //
+    // The field was NAMED storiesSinceFull. The name asserted a guarantee the
+    // arithmetic did not provide, and 13 is a plausible number, so nothing looked
+    // wrong. Deriving it from the set removes the possibility: there is now one
+    // source of truth and the count cannot disagree with the evidence for it.
+    storiesSinceFull: distinctStories(narrowedStories).length,
+    narrowedStories,
+  };
 }
 
 function writeLedger(projectRoot, ledger) {
-  const p = path.join(projectRoot, LEDGER_REL);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
+  // Written to the primary, matching readLedger - otherwise a worktree run
+  // would clear debt into a file nothing reads afterwards.
   const out = { ...ledger };
   if (!Number.isFinite(out.storiesSinceFull)) out.storiesSinceFull = 0;
-  fs.writeFileSync(p, JSON.stringify(out, null, 2) + '\n', 'utf8');
-  return out;
+  return writeJsonState(path.join(ledgerRoot(projectRoot), LEDGER_REL), out);
 }
 
 /**
@@ -106,6 +187,32 @@ function resolveScope(o = {}) {
     return { scope: 'perf', escalated: false, reason: 'perf suite requested' };
   }
 
+  // DOCS-ONLY CHANGES DO NOT GATE.
+  //
+  // Checked BEFORE escalation deliberately: a docs commit cannot break a test,
+  // so there is nothing for a full pass to protect against, and forcing one
+  // because the ledger happens to be at its ceiling is pure cost. The check is
+  // conservative -- it requires a non-empty changed-file list and EVERY entry to
+  // be documentation. An empty list means "could not determine", which must not
+  // read as "nothing to test".
+  //
+  // Code inside a docs directory is deliberately not exempt: a .cjs or .py under
+  // docs/ is still executable and still gates.
+  const changed = o.changedFiles || [];
+  if (changed.length) {
+    const isDocs = (f) =>
+      /\.(md|mdx|markdown|txt|rst|adoc)$/i.test(f) ||
+      /(^|[\\/])(docs|documentation)[\\/].*\.(md|mdx|markdown|txt|rst|adoc|png|jpg|jpeg|gif|svg|webp)$/i.test(f) ||
+      /(^|[\\/])(LICENSE|CHANGELOG|CONTRIBUTING|CODEOWNERS)$/i.test(f);
+    if (changed.every(isDocs)) {
+      return {
+        scope: 'docs',
+        escalated: false,
+        reason: `documentation only (${changed.length} file(s)) - no gate`,
+      };
+    }
+  }
+
   // ESCALATION IS CHECKED BEFORE ANY NARROWING.
   // Order matters and is load-bearing: an earlier revision returned the epic
   // subset before reaching these checks, so a repo at its debt ceiling would
@@ -128,9 +235,28 @@ function resolveScope(o = {}) {
 
   // A change to shared plumbing invalidates the assumption that the blast radius
   // is confined to the story's or epic's own areas.
-  const wide = (o.changedFiles || []).filter((f) =>
-    /(^|[\\/])(package\.json|pnpm-lock\.yaml|package-lock\.json|requirements[^\\/]*\.txt|pyproject\.toml|Dockerfile|docker-compose[^\\/]*\.ya?ml|tsconfig[^\\/]*\.json)$/i.test(f),
-  );
+  //
+  // "Shared plumbing" means something that changes WHAT THE SUITE EXERCISES.
+  // Tooling that only shapes the developer's editor or the CI runner does not,
+  // and matching it escalates every story for no gain. `Dockerfile` was
+  // unanchored, so it matched `.devcontainer/Dockerfile` - the editor container -
+  // and graphene_supply ran a full sweep on every story for days because that
+  // file sat in the branch diff from an earlier commit.
+  //
+  // The exclusion is applied FIRST so a path under it can never escalate,
+  // whatever its basename.
+  //
+  // NOT at epic close. changedFiles there spans the whole epic, so any
+  // package.json touched anywhere in it would force full - and an epic that
+  // touched a dependency is exactly what the risk-selected subset is built to
+  // cover. The LEDGER escalations below still apply at epic close, because those
+  // are about missing evidence rather than blast radius, and epic close is the
+  // moment to pay that debt down.
+  const wide = (o.isEpicClose ? [] : o.changedFiles || [])
+    .filter((f) => !/(^|[\\/])(\.devcontainer|\.github|\.vscode|\.idea|docs)[\\/]/i.test(f))
+    .filter((f) =>
+      /(^|[\\/])(package\.json|pnpm-lock\.yaml|package-lock\.json|requirements[^\\/]*\.txt|pyproject\.toml|Dockerfile|docker-compose[^\\/]*\.ya?ml|tsconfig[^\\/]*\.json)$/i.test(f),
+    );
   if (wide.length) {
     return {
       scope: 'full',
@@ -184,94 +310,21 @@ function recordRun(projectRoot, { scope, storyId, sha, passed }) {
       narrowedStories: [],
     });
   }
-  const since = Number.isFinite(cur.storiesSinceFull) ? cur.storiesSinceFull : 0;
+  // The list is the ledger. storiesSinceFull is derived on read, so it cannot
+  // drift from the evidence - the old code maintained the integer separately and
+  // capped only the list at 50, meaning past 50 narrow runs the auditable trail
+  // silently understated the number that actually drove escalation.
+  //
+  // No cap is needed now: the list holds DISTINCT stories, and a project that
+  // reaches the ceiling runs full and clears it. It cannot grow unbounded.
+  const narrowedStories = distinctStories([...cur.narrowedStories, storyId || 'unknown']);
   return writeLedger(projectRoot, {
     ...cur,
-    storiesSinceFull: since + 1,
-    narrowedStories: [...cur.narrowedStories, storyId || 'unknown'].slice(-50),
+    storiesSinceFull: narrowedStories.length,
+    narrowedStories,
   });
 }
 
-/**
- * Build a marker expression for a scope.
- *
- * Selection is a QUERY, not a list. Enumerating node IDs makes the file grow
- * forever, drift from the code, and accumulate the same target in several
- * notations, which defeats deduplication and silently inflates every run.
- *
- * @param {{scope:string, areas?:string[], includeSlow?:boolean,
- *          recentlyFailedAreas?:string[]}} o
- * @returns {string|null} expression, or null when the scope is list-driven
- */
-function markerExpression(o = {}) {
-  const scope = o.scope;
-  const areas = [...new Set([...(o.areas || []), ...(o.recentlyFailedAreas || [])])]
-    .filter(Boolean)
-    .map((a) => `area_${String(a).replace(/[^a-z0-9_]/gi, '_').toLowerCase()}`);
-
-  if (scope === 'perf') return 'perf';
-
-  if (scope === 'slice') {
-    // During the red-green loop only the story's own new tests run. They are
-    // enumerated as progression targets, so there is no marker expression and
-    // nothing else is pulled in. Speed here is what keeps the loop tight.
-    return null;
-  }
-
-  if (scope === 'full') {
-    // Everything the gates cover: all tiers except the excluded ones.
-    return NEVER_IN_GATES.map((t) => `not ${t}`).join(' and ');
-  }
-
-  if (scope === 'epic') {
-    // Contract and smoke unconditionally -- seams are where integration defects
-    // concentrate and they are cheap. Plus every area the epic touched, plus
-    // areas with a recent failure, which is the best cheap instability predictor.
-    const base = ['smoke', 'unit', 'contract'];
-    const areaClause = areas.length ? ` or (${areas.join(' or ')})` : '';
-    let expr = `(${base.join(' or ')}${areaClause})`;
-    for (const t of NEVER_IN_GATES) expr += ` and not ${t}`;
-    if (!o.includeSlow) expr += ' and not slow';
-    return expr;
-  }
-
-  if (scope === 'story') {
-    // Story close is a TAILORED regression: this story's own tests (enumerated as
-    // progression targets, so they need no marker) plus smoke plus the areas the
-    // epic touches and any area with a recent failure. That is a small set,
-    // re-runnable after every story.
-    //
-    // This previously returned `not perf`, which matches every tier and every
-    // area - so story close ran the entire suite while claiming to be scoped.
-    // Story, epic and full were all the same run. The regression ledger recorded
-    // narrowing that never happened.
-    const base = ['smoke'];
-    const areaClause = areas.length ? ` or (${areas.join(' or ')})` : '';
-    let expr = `(${base.join(' or ')}${areaClause})`;
-    for (const t of NEVER_IN_GATES) expr += ` and not ${t}`;
-    if (!o.includeSlow) expr += ' and not slow';
-    return expr;
-  }
-
-  return null;
-}
-
-/**
- * Areas a project declares for an epic, read from docs/epics/<epic-id>.md
- * front matter or docs/test-areas.json. Absent areas are not an error: the epic
- * subset then falls back to smoke + unit + contract, which is still a real gate.
- */
-function epicAreas(projectRoot, epicId) {
-  if (!epicId) return [];
-  try {
-    const p = path.join(projectRoot, 'docs', 'test-areas.json');
-    const d = JSON.parse(fs.readFileSync(p, 'utf8'));
-    const v = d[epicId] || d[String(epicId).toUpperCase()];
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
-}
 
 
 /**
@@ -295,6 +348,7 @@ const SUITES_BY_SCOPE = {
   epic: ['test:unit', 'test:integration', 'test:component', 'test:e2e'],
   full: ['test:unit', 'test:integration', 'test:component', 'test:e2e', 'test:visual', 'test:a11y', 'test'],
   perf: [],
+  docs: [],
 };
 
 const CATCH_ALL_SUITE = 'test';
@@ -307,11 +361,43 @@ const CATCH_ALL_SUITE = 'test';
  * whole suite" and "ran the story tier" are different facts and a report that
  * conflates them is how the over-selection defect hid for weeks.
  */
+/**
+ * Areas an epic declared in docs/test-areas.json, keyed by epic id.
+ *
+ * Written by the Test Architect at epic close - see the
+ * epic-regression-risk-selection skill. `--scope epic` runs a fixed tier list,
+ * which knows nothing about what the epic actually touched; the declared areas
+ * are the judgement that closes that gap.
+ *
+ * Absent or unreadable returns [], which means the tier list alone applies.
+ * That is a real gate, just an unselected one - so a missing file degrades to
+ * "broad" rather than to "nothing".
+ */
+function epicAreas(projectRoot, epicId) {
+  if (!epicId) return [];
+  try {
+    const p = path.join(projectRoot, 'docs', 'test-areas.json');
+    const d = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const v = d[epicId] || d[String(epicId).toUpperCase()];
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 function resolveSuites(scope, definedScripts) {
-  const wanted = SUITES_BY_SCOPE[scope] || SUITES_BY_SCOPE.story;
+  // `docs` and `perf` legitimately define no gating suites, and an empty list is
+  // the correct answer for them. Falling back to `story` on a falsy lookup would
+  // turn "run nothing" into "run the story suite", which is precisely the bug the
+  // docs bypass exists to avoid.
+  const wanted = Array.isArray(SUITES_BY_SCOPE[scope]) ? SUITES_BY_SCOPE[scope] : SUITES_BY_SCOPE.story;
   const available = wanted.filter((s) => definedScripts.includes(s));
   if (available.length) return { suites: available, untiered: false };
-  if (scope !== 'full' && definedScripts.includes(CATCH_ALL_SUITE)) {
+  // The catch-all fallback exists so a project that defines only `test` still
+  // gets a gate. It must NOT apply to scopes that deliberately run nothing:
+  // `docs` and `perf` resolving to the catch-all would run the entire suite,
+  // which is the exact opposite of what those scopes mean.
+  if (scope !== 'full' && !NON_GATING_SCOPES.includes(scope) && definedScripts.includes(CATCH_ALL_SUITE)) {
     return { suites: [CATCH_ALL_SUITE], untiered: true };
   }
   return { suites: [], untiered: false };
@@ -323,7 +409,7 @@ function resolveSuites(scope, definedScripts) {
  * Deliberately just visual and a11y. Component and e2e are the expensive tiers
  * and belong to Tess's risk-selected epic close; allowing them here would let
  * story scope reach the full pyramid, which a test now forbids. `perf` is
- * absent for a different reason: it has its own scope and NEVER_IN_GATES holds.
+ * absent for a different reason: it has its own scope, and no gating scope lists a
  */
 const INCLUDABLE_SUITES = ['test:visual', 'test:a11y'];
 
@@ -353,15 +439,13 @@ module.exports = {
   SCOPES,
   CATCH_ALL_SUITE,
   resolveSuites,
-  TIERS,
-  NEVER_IN_GATES,
+  epicAreas,
   SUITES_BY_SCOPE,
   INCLUDABLE_SUITES,
   resolveIncludes,
-  markerExpression,
-  epicAreas,
   LEDGER_REL,
   DEFAULT_MAX_STORIES_BETWEEN_FULL,
+  ledgerRoot,
   readLedger,
   writeLedger,
   resolveScope,
