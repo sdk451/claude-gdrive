@@ -67,13 +67,20 @@ function isInside(root, target) {
 function stripHeredocs(src) {
   const open = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/g;
   let out = src;
+  // Search position lives in `out`, the buffer we actually mutate. Re-running
+  // `exec` against `out` (not the original `src`) after every strip means a
+  // reused tag - `cat <<EOF ... EOF; rm -rf / <<EOF ... EOF` - can't make a
+  // later lookup land back on the first, already-processed occurrence: that
+  // used to erase everything up to the FIRST terminator, silently swallowing
+  // the real command in between as if it were heredoc body.
+  open.lastIndex = 0;
   let m;
-  while ((m = open.exec(src)) !== null) {
+  while ((m = open.exec(out)) !== null) {
     const tag = m[2];
     // The body runs from the end of the opening line to a line that is exactly
     // the terminator. `<<-` permits leading tabs on the terminator.
-    const after = out.indexOf('\n', out.indexOf(m[0]));
-    if (after === -1) continue;
+    const after = out.indexOf('\n', open.lastIndex);
+    if (after === -1) break;
     const term = new RegExp('^[\\t ]*' + tag + '[\\t ]*$', 'm');
     const rest = out.slice(after + 1);
     const hit = term.exec(rest);
@@ -83,6 +90,7 @@ function stripHeredocs(src) {
       break;
     }
     out = out.slice(0, after + 1) + rest.slice(hit.index + hit[0].length);
+    open.lastIndex = after + 1;
   }
   return out;
 }

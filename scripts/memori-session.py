@@ -186,11 +186,48 @@ def main() -> int:
         mem = get_memori(root)
         add_memory(mem, memory, category="agent-session", labels=labels)
     except Exception as exc:
+        # Record the failure without dirtying the working tree on every run.
+        #
+        # This log was appended to unconditionally: the same line - most often a
+        # broken grpc install: `ImportError: cannot import name 'cygrpc'` - was
+        # written on every Stop hook, growing the file and leaving one
+        # uncommitted diff after each session. And it lived under docs/, so it was
+        # tracked, so the noise was a committable change nobody wanted to commit.
+        #
+        # Two fixes here; the third is the .gitignore that keeps it out of version
+        # control. This one bounds the file and dedupes the tail, so a recurring
+        # error is recorded once rather than a thousand times.
+        _log_hook_error(root, exc)
+    return 0
+
+
+def _log_hook_error(root: Path, exc: Exception) -> None:
+    """Append a hook error, but only if it differs from the last line, and cap
+    the file. A failing hook must never grow an unbounded log or spam identical
+    lines - the log is a signal, and a signal repeated a thousand times is noise.
+    """
+    try:
         audit_dir = root / "docs" / "agent-audit"
         audit_dir.mkdir(parents=True, exist_ok=True)
-        with (audit_dir / "memori-hook-errors.log").open("a", encoding="utf-8") as f:
-            f.write(f"{type(exc).__name__}: {exc}\n")
-    return 0
+        line = f"{type(exc).__name__}: {exc}"
+        log = audit_dir / "memori-hook-errors.log"
+
+        existing = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+        # Same error as last time: bump a count on the tail rather than appending.
+        if existing and existing[-1].startswith(line):
+            # `<line>  (xN)` - increment N, or start at 2.
+            import re as _re
+            m = _re.search(r"  \(x(\d+)\)$", existing[-1])
+            n = (int(m.group(1)) + 1) if m else 2
+            existing[-1] = f"{line}  (x{n})"
+        else:
+            existing.append(line)
+        # Keep the file bounded: the last 50 distinct errors are plenty to diagnose.
+        existing = existing[-50:]
+        log.write_text("\n".join(existing) + "\n", encoding="utf-8")
+    except Exception:
+        # Logging the error must never itself raise - the hook is fail-open.
+        pass
 
 
 if __name__ == "__main__":

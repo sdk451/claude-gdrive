@@ -121,7 +121,9 @@ targets plus smoke plus the epic's declared areas. Epic close is a **judgement**
 yours.
 
 1. Read the epic's stories, their areas, and the regression ledger's recently-failed areas.
-2. Declare the epic's areas in `docs/test-areas.json` keyed by epic id. Absent areas are not
+2. Declare the epic's areas in `docs/test-areas.json` keyed by epic id, using the
+   **epic-regression-risk-selection** skill, which sets out which signals earn an area
+   its place and which do not. Absent areas are not
    an error, but the subset then falls back to smoke, unit and contract, which is a weaker
    gate than you could have specified.
 3. Select for **risk**, not for coverage completeness: seams touched by more than one story,
@@ -196,3 +198,23 @@ All tests green AND coverage targets met AND no visual diffs, no new axe violati
 - **Mutation test the critical paths.** If a business rule changes, the test must fail. Use StrykerJS or equivalent on the 10% of code that matters most.
 - **No sharing mutable state between tests.** Fresh DB per test where affordable. Seed data per test.
 - **Quarantine, don't delete.** Flaky tests go to quarantine with an issue — never commented out or deleted without an explicit decision.
+
+## Story-focus suite nomination
+
+Tiering is a cost default, not a claim that visual, a11y or perf only matter at release.
+When a story's acceptance criteria ARE the rendered UI, the accessibility behaviour, or a
+performance threshold, that coverage is part of the definition of done and you nominate it
+during test design - not after the fact.
+
+| Story focus | What you nominate | What Cody runs at story close |
+| --- | --- | --- |
+| UI / web rendering | `test:visual` | `--scope story --include test:visual` |
+| Accessibility | `test:a11y` | `--scope story --include test:a11y` |
+| Both | both | `--scope story --include test:visual,test:a11y` |
+| Performance / optimisation | the perf suite | `--scope story` then `--scope perf` |
+
+Write the nomination into the story's test plan so the opt-in is traceable to an AC. Two limits
+on you specifically: nominate the narrowest suite that evidences the AC, and do not nominate
+story-focus suites for every story in an epic - that is a full pass wearing a disguise, and it
+is the exact failure mode the tiering exists to prevent. Epic close remains where you make the
+risk-based selection across areas.

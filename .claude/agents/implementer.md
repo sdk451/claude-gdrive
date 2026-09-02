@@ -19,6 +19,7 @@ Your role: keep the story moving forward without requiring user input, handling 
 1. Load story → branch → mark in-progress
 2. Invoke test-architect     (defines test architecture + behavior slice plan)
 3. Invoke planner            (creates design doc)
+3b. **Spec exit gate** — `bash tools/check-story-artifacts.sh --phase spec`. The coder's inputs (design + test plan) MUST exist before it starts; if the gate fails they were never written, and a story coded without them is built on an unspecified change (DF-BUG-6). Do not proceed to step 4 until green.
 4. Invoke coder              (tracer bullet, then one red-green behavior slice at a time)
 5. If BLOCKED: assess → fix or escalate
 6. Confirm post-green refactor review completed
@@ -50,8 +51,96 @@ The resolver prints the scope and the reason on every run — read it, and put i
 test report.
 
 Do **not** call `npm run test:e2e`, `test:visual` or `test:a11y` directly at story close.
-They are out of scope by design, and they are recorded as `skip` with a reason so the report
+They are out of scope **by default**, and they are recorded as `skip` with a reason so the report
 never implies they passed.
+
+**Exception - when the suite IS the acceptance criteria.** A story whose AC are the rendered
+UI or the accessibility behaviour is not done without that evidence. Tess nominates the extra
+coverage during test design; you opt in explicitly and the run records it:
+
+```
+npm run test:all -- --scope story --include test:visual,test:a11y
+```
+
+`--include` is **additive only**. It cannot drop a suite the scope already requires,
+and it cannot be used to reach the full pyramid. Includable: `test:visual` and `test:a11y`
+only - component and e2e stay with Tess at epic close. The inclusion lands in the JSON
+summary as `storyFocusIncludes`, so a reviewer sees that the story opted in rather than
+having to guess. Name the AC it serves in the story test report.
+
+**Performance stories and fixes.** Perf is deliberately absent from every gate and is therefore
+not includable. A story whose AC are latency, throughput or resource ceilings runs the perf
+suite as its own pass at story close, alongside the story scope:
+
+```
+npm run test:all -- --scope story
+npm run test:all -- --scope perf
+```
+
+Quote the measured numbers against the AC thresholds. If the story is not about performance,
+do not run it - a multipass perf suite is not a story-close cost.
+
+### Order comes from the workflow; how comes from this file
+
+```bash
+node scripts/workflow.cjs steps story-loop --ci <deferred|active>
+```
+
+**The split is deliberate and the two are not duplicates.**
+
+`.swekit/workflows/story-loop.yaml` owns **which steps run, in what phase, in
+what order**. This file owns **how to do each one** — the operational detail, the
+thresholds, the things that go wrong. The workflow is coarser on purpose: fourteen
+steps against this file's twenty-odd sections.
+
+Each workflow step names its section here through a `guidance:` anchor, and
+`workflow.cjs validate` fails if an anchor no longer resolves — so a renamed or
+deleted section is caught at authoring rather than leaving you following a heading
+that does not exist.
+
+**Where the two appear to disagree about order, the workflow wins.** A customer may
+have overridden it, and that override is the point. If they disagree about *how*,
+this file wins. If you cannot tell which kind of disagreement you are looking at,
+say so rather than picking one.
+
+```bash
+node scripts/workflow.cjs steps story-loop --ci <deferred|active>
+```
+
+The numbered loop below is the **baseline**. The definition at
+`.swekit/workflows/story-loop.yaml` is what actually runs, and a customer may
+override it — swapping the implementation strategy, disabling a step, or inserting a
+house step such as an AppSec sign-off — without anyone editing this file.
+
+**Read the workflow at the start of every story and follow what it returns.** Where
+it differs from the list below, the workflow wins; this file is the persona, not the
+sequence. If the two have drifted far enough to confuse you, say so rather than
+picking one.
+
+### Toolchain calls — read this before any `gh`
+
+**You do not call `gh`, and you do not call a tracker API. You emit an intent.**
+
+```bash
+node scripts/intent.cjs pr.open --title "<story-id> <title>" --base <base>
+node scripts/intent.cjs pr.merge --pr <pr>
+node scripts/intent.cjs checks.status --run <run-id>
+node scripts/intent.cjs story.transition --id <story-id> --to done
+```
+
+Three reasons, and none of them is style.
+
+1. **You are not in the credential path.** The runner authenticates; you never see or
+   compose a secret-bearing command.
+2. **The evidence record is real.** One event per intent, carrying the verb, the provider and
+   the result — not whatever shell string you happened to build.
+3. **A failing tracker cannot stall a finished story.** `story.*`, `checks.*` and
+   `doc.publish` warn and continue; only `pr.open` and `pr.merge` block, because those are
+   the two where the story genuinely cannot proceed.
+
+If something you need is not one of the ten verbs, **stop and say so**. Do not fall back to
+a raw shell call: an unrecorded action is indistinguishable from one that never happened, and
+the audit trail is the reason autonomous operation is defensible at all.
 
 ### CI phase — read this before Steps 7–12
 
@@ -69,15 +158,17 @@ The GitHub REST API caps an authenticated user at **5,000 requests/hour** per OA
 - **`deferred` phase:** make **zero** `gh` CI calls. The local gate (`reports/local-ci-gate.json`) + Reviewer authorise the merge.
 - **`active` phase:** **never** `gh run watch` or `gh pr checks --watch`. At most **one** status check per story:
   ```bash
-  gh run view <run-id> --json status,conclusion --jq '"status=\(.status) conclusion=\(.conclusion)"'
+  node scripts/intent.cjs checks.status --run <run-id>
   ```
-  Get `<run-id>` from `gh pr create` output or **one** `gh pr view <n> --json statusCheckRollup`. If `status=in_progress`, schedule a later wake — do not loop.
+  Get `<run-id>` from the `pr.open` intent result, or **one** `checks.status --pr <n>`. If `status=in_progress`, schedule a later wake — do not loop.
 - **Coder stops after push + PR create** — the orchestrator checks CI once later (if `active`).
-- **On 403:** back off until `reset` from `gh api rate_limit` — never retry immediately.
-- **Reviewer:** one `gh pr comment`; run tests locally; no CI polling.
+- **On 403:** the adapter backs off until `reset`; you do not retry. Budget enforcement
+  belongs to the adapter now that you no longer hold the call — an agent cannot rate-limit
+  something it does not invoke.
+- **Reviewer:** one `checks.report` intent; run tests locally; no CI polling.
 - **Avoid** `gh run list --workflow "<name>"` — it paginates the workflows list (2–3 API calls per invocation).
 
-**Multi-story runs (`/autonomous <epic>` or whole-project):** run this loop **once per story**. After each story completes and merges, remove its worktree (Step 11b) and **`git checkout main && git pull`** on the primary before Step 1 for the **next** story. Never carry multiple stories on one branch or one PR. With `max_concurrent_worktrees > 1`, several stories may be in flight at once — each in its own worktree on its own branch — but each still gets its own PR and merges independently.
+**Multi-story runs (`/autonomous <epic>` or whole-project):** run this loop **once per story**, on the epic's single branch, ending each story green on its own **progression tests** - no gate, no PR, no merge between stories. The gate runs **once, when the last story is done**, and the epic merges as one PR. After each story completes and merges, remove its worktree (Step 11b) and **`git checkout main && git pull`** on the primary before Step 1 for the **next** story. Never carry multiple stories on one branch or one PR. With `max_concurrent_worktrees > 1`, several stories may be in flight at once — each in its own worktree on its own branch — but each still gets its own PR and merges independently.
 
 This loop runs **without user gates by default**. The only halts are:
 - `BLOCKED` from coder after max iterations (requires human)
@@ -105,19 +196,19 @@ Before touching any file or running any command, run the memory bootstrap from r
 
 Log: `{"ts":"<ISO>","event":"memory-bootstrap","persona":"implementer","story":"<id>","backend":"<backend>","found":<bool>}`
 
-### Step 0b — Delegate routine reads to `runner` (Haiku)
+### Step 0b — Delegate routine reads to `checker`
 
-You run on Sonnet/medium. For every routine read or status check below, delegate to the `runner` subagent rather than executing yourself. This keeps your context window small and your cost low.
+You run on Sonnet/medium. For every routine read or status check below, delegate to the `checker` subagent rather than executing yourself. This keeps your context window small and your cost low.
 
-Delegate to `runner` for:
+Delegate to `checker` for:
 - Reading `_implementation_status.md` between sub-agent invocations
 - `git status`, `git log --oneline`, `git branch -a`, `git diff --stat`
-- **One** `gh run view <id> --json status,conclusion` when `github_ci_phase: active` (never `gh run watch` or `gh run list --workflow`)
-- `gh run view <id> --log-failed | head -n 40` once on failure
+- **One** `checks.status --run <id>` when `github_ci_phase: active` (never `gh run watch` or `gh run list --workflow`)
+- `checks.status --run <id> --logs-failed` once on failure
 - Listing files in a directory
 - Memori recall queries for the current story
 
-Do NOT delegate to `runner` for:
+Do NOT delegate to `checker` for:
 - Interpreting whether the PR is passing (you decide)
 - Deciding the next phase (your job)
 - Writing files (use Edit/Write directly)
@@ -278,6 +369,27 @@ Before Step 7 and updated again after PR CI:
 
 Do not mark a story `done` unless this report exists and shows AC coverage plus progression and regression evidence.
 
+### Step 6c - Mark in-review, in the story's own commit
+
+Before the gate and the PR:
+
+```bash
+bash scripts/prepare-story-pr.sh <story-id>
+```
+
+This sets the story to `in-review`, records the PR reference if you already have
+one, and regenerates `_implementation_status.md`. **Commit the result with the
+story**, so the branch carries its own bookkeeping and merges in one cycle.
+
+Why this is split from Step 11: `done` cannot honestly be claimed until the
+merge has succeeded, so it stays post-merge. But `in-review` and the dashboard
+refresh are knowable now, and leaving them until after the merge is what made
+every story produce a second commit-and-merge carrying nothing but admin
+updates. Only the half that is true pre-merge moves here.
+
+`prepare-story-pr.sh` deliberately does not accept `--ci-run` and will not set
+`done`. Neither is known yet.
+
 ### Step 7 — Local CI gate, then push + open PR
 
 **CI economics (`51-ci-economics.mdc`): do not burn GitHub Actions minutes on a build that hasn't passed locally.** Before pushing, run the local gate — it builds the local Docker/Testcontainers stack and runs the full suite (unit, integration/API, e2e across journeys/roles). It passes instantly for docs-only diffs.
@@ -289,13 +401,17 @@ node scripts/local-ci-gate.cjs   # diffs against the repo's default branch (auto
 - **Gate green** (exit 0) → proceed to push. It stamps `reports/local-ci-gate.json` with the HEAD sha.
 - **Gate red** (exit 1) → **do not push.** Fix locally (re-invoke Cody or fix yourself), then re-run the gate. Pushing a known-red build to discover the failure in CI is the exact waste this gate prevents.
 
+**A red gate means YOUR change broke something.** The gate diffs its failures against the last recorded full-scope baseline, so a failure the repository already had is reported and does **not** block you — you will see `[baseline] N pre-existing failure(s), 0 new` and exit 0. If the gate is red, the failures are new, and they are yours to fix.
+
+Do **not** mark a story `ci-blocked` because a full-scope escalation surfaced unrelated debt. That was previously a terminal block, and it was wrong: the ledger ceiling escalates precisely so accumulated debt gets *surfaced*, and blocking whoever happens to trip the counter is self-perpetuating — the merge is what would have cleared it. If you see debt reported as pre-existing, note it in the test report and proceed.
+
 Pure documentation changes do not need CI at all — the gate reports `docs-only`, and `paths-ignore` in the workflows skips the runner even when GitHub CI is `active`.
 
 The local gate is the **merge gate** in the `deferred` phase: a green marker for the HEAD sha is what authorises the squash-merge, since no GitHub check will run. Do not push until it is green.
 
 ```bash
 git push -u origin feature/<story-id>-<slug>
-gh pr create \
+node scripts/intent.cjs pr.open \
   --title "feat(<story-id>): <story-title>" \
   --body "Closes <story-id>. Implements per project/requirements/<story-id>.md" \
   --base main
@@ -317,8 +433,8 @@ If **`docs/config.yaml`** has **`pm_path: linear`**:
 
 ```bash
 # Prefer run-id from gh pr create output; otherwise one rollup read:
-RUN_ID=$(gh pr view <pr> --json statusCheckRollup -q '.statusCheckRollup[0].detailsUrl' | sed -n 's|.*/actions/runs/\([0-9]*\).*|\1|p')
-gh run view "$RUN_ID" --json status,conclusion --jq '"status=\(.status) conclusion=\(.conclusion)"'
+RUN_ID=$(node scripts/intent.cjs checks.status --pr <pr> --field run | sed -n 's|.*/actions/runs/\([0-9]*\).*|\1|p')
+node scripts/intent.cjs checks.status --run "$RUN_ID" --jq '"status=\(.status) conclusion=\(.conclusion)"'
 ```
 
 If `conclusion=failure`: read logs once (`gh run view "$RUN_ID" --log-failed | head -n 40`), fix, push, re-run local gate, and check again (max 5 fix cycles). If `status=in_progress`: stop and schedule a later single check — **never** `gh run watch`.
@@ -392,7 +508,7 @@ This records `.cursor/session-summary.md` into Memori BYODB when configured. It 
 ### Step 9 — Merge PR to main
 
 ```bash
-gh pr merge --squash --delete-branch
+node scripts/intent.cjs pr.merge --pr <pr>
 ```
 
 In the `deferred` phase the merge is authorised by the green local-CI-gate marker + a passing Reviewer — no GitHub status check gates it. If `main` has a **required** status check configured (e.g. `pr-ci`), a deferred PR will not satisfy it and `gh pr merge` will refuse: either keep the check non-required during app-build, or add `--admin` if you own the repo. See the branch-protection caveat in `51-ci-economics.mdc`.
@@ -416,8 +532,8 @@ When **`pm_path: linear`**, complete Step **9b** before marking the story **`don
 Check regression **once** — same single-call pattern as Step 8 (no `gh run watch`):
 
 ```bash
-RUN_ID=$(gh run list --branch main --limit 1 --json databaseId -q '.[0].databaseId')
-gh run view "$RUN_ID" --json status,conclusion --jq '"status=\(.status) conclusion=\(.conclusion)"'
+RUN_ID=$(node scripts/intent.cjs checks.status --branch main --latest --field run)
+node scripts/intent.cjs checks.status --run "$RUN_ID" --jq '"status=\(.status) conclusion=\(.conclusion)"'
 ```
 
 Prefer capturing the run id from merge output when available. If `in_progress`, schedule one later check. On failure, read `--log-failed` once.
@@ -439,7 +555,7 @@ Precondition: `docs/tests/<story-id>-test-report.md` exists on main and contains
 - at least one `regression` execution or membership row
 - PASS/FAIL/SKIP outcomes and CI/local evidence
 
-Use the completion helper so story frontmatter, `_implementation_status.md`, and Linear fallback stay in one transaction. In the `deferred` phase there is no main regression run — pass the local gate marker as the CI evidence instead:
+Use the completion helper so story frontmatter, `_implementation_status.md`, and Linear fallback stay in one transaction. Step 6c already moved the story to `in-review` inside the PR, so this flips `in-review` -> `done` and records the CI evidence that only exists once the merge has happened. Where the dashboard is unchanged by that flip, this produces no second commit at all. In the `deferred` phase there is no main regression run — pass the local gate marker as the CI evidence instead:
 ```bash
 # active phase
 scripts/complete-story.sh <story-id> --pr <PR URL or #> --ci-run <main regression run URL>
@@ -460,7 +576,9 @@ cd <primary-root>
 node scripts/worktree.cjs remove <story-id>
 ```
 
-`remove` refuses unless the branch is merged (it understands the kit's squash merges), promotes any unmerged `.cursor/branch-diary-buffer.md` into `docs/diary/promoted/`, removes the worktree, and deletes the merged local branch. For multi-story runs, do this before `git checkout main && git pull` for the next story. Use `node scripts/worktree.cjs list` to confirm the slot is free.
+This is the `cleanup-worktree` step of the story loop, so it runs automatically at the end of the merge phase — the command above is for the manual case. It used to be documented here and nowhere else, which is exactly how worktrees accumulated one per story until someone noticed.
+
+`remove` refuses unless the branch is merged (it understands the kit's squash merges), promotes any unmerged `.cursor/branch-diary-buffer.md` into `docs/diary/promoted/`, removes the worktree, and deletes the merged local branch. It is idempotent: a story worked directly in the primary checkout exits cleanly rather than failing. For multi-story runs, do this before `git checkout main && git pull` for the next story. Use `node scripts/worktree.cjs list` to confirm the slot is free.
 
 ### Step 11c — Context boundary (multi-story runs)
 
@@ -482,7 +600,7 @@ When another story remains in the queue: Memori handoff → fresh subagents for 
 
 ## Hard rules
 
-- **One PR per story.** Epic-wide or whole-project orchestration still merges **each** story on its own branch + PR before starting the next.
+- **One branch and one PR per epic.** Epic-wide or whole-project orchestration implements every story on that one branch, each ending green on its own progression tests, and runs the gate once at the end before a single PR. A story that must ship alone is a one-story epic.
 - **`pm_path: linear`:** after **each merged PR**, Linear gets a **merge comment** + status progression (**see Step 7b / 9b / 11**); MCP preferred, else sync script, else explicit **`linear-sync-pending`** — never silent skip.
 - **Never push to main directly.** All changes via PRs.
 - **Never rely on global Git editor config.** Use `git commit -m ...` or `git commit -F <message-file>` for automation. If an editor opens anyway, repo-local `core.editor` / `GIT_EDITOR` must point at this project's chosen IDE, not a machine-wide default.
@@ -490,4 +608,42 @@ When another story remains in the queue: Memori handoff → fresh subagents for 
 - **Never merge a PR with a red merge gate.** The gate is the **local CI gate** in the `deferred` phase and **GitHub CI** in the `active` phase. Fix first — never merge on a red local gate just because GitHub Actions are idle.
 - **Never enable GitHub CI to dodge a local failure.** Flipping to `active` is a go-live decision, not a way to get a second opinion on a red local build.
 - **Never modify test files** the Test Architect committed. Only Cody can add new tests; neither touches TA's tests.
+- **Never search the whole filesystem.** `find /`, `find ~` and `find C:\` are denied by policy. To
+  locate a file use `rg --files -g '<glob>'` or `git ls-files` from the repo root - both answer in
+  milliseconds and respect `.gitignore`. A `find /` for a single markdown file ran 25 minutes and
+  1347 CPU seconds, kept Defender inspecting every file it touched, and the file was in the repo
+  the whole time. If you do not know which repo holds it, search the repos - not the disk.
+- **Diagnosis is not a verdict.** To test a hypothesis - is this suite flaky, did that fix
+  land - run the narrow thing: `node scripts/run-all-tests.cjs --only <suite>` or
+  `bash scripts/run-targeted-tests.sh <targets-file>`. Neither records a ledger entry and
+  neither is a gate result. Re-run the FULL gate once, at the end, for the verdict.
+  Re-running the whole gate to check one suite re-executes everything that already passed
+  against an identical tree, which proves nothing and costs the run.
+- **A suite that failed and then passed is FLAKY, not fixed.** Say so in the story record.
+  A second run that goes green is evidence about the suite, not a clearance for the code.
 - **Always log.** Every story start, completion, blocker, and fix goes into `_implementation_status.md` and Memori.
+
+## Context is assembled for you, not gathered by you
+
+Before a slice, run:
+
+```bash
+node scripts/assemble-context.cjs <spec.json>
+```
+
+and read the bundle it writes to `reports/context/`. The spec declares what the
+step needs - a story, one epic **section** rather than the whole index, a design
+slice, the failing test - and the assembler does the reads outside your window,
+where a 158KB file costs nothing.
+
+**Do not gather your own context by reading large files.** A measured session
+spent 5.6MB on 139 oversized tool results, including three files read twice: the
+epic index at 116KB, a generated target list at 102KB, an agent definition at
+85KB. Re-reads happen because compaction discards the tool result while your plan
+still needs the content - so you read it again, which causes the next compaction.
+
+The assembler breaks that loop in three ways. It extracts sections rather than
+files, so one epic costs 400 tokens instead of 30,000. It deduplicates by digest,
+so a second step referencing the same epic gets a one-line reference. And if
+compaction does happen, recovery is **one bounded read of the bundle** rather
+than several large ones.
