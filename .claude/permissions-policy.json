@@ -93,7 +93,12 @@
       "Write-Host",
       "Join-Path",
       "Resolve-Path",
-      "Measure-Object"
+      "Measure-Object",
+      "cd",
+      "pushd",
+      "popd",
+      ":",
+      "false"
     ],
     "deniedPatterns": [
       "rm\\s+-rf\\s+[/~]",
