@@ -227,6 +227,18 @@ test('a command AFTER a heredoc is still evaluated', () => {
   assert.deepEqual(splitSubcommands(cmd).map(headOf), ['cat', 'rm']);
 });
 
+test('SECURITY: a reused heredoc tag must not hide the command between them', () => {
+  // stripHeredocs used to look up each opener's position with `out.indexOf(m[0])`,
+  // a string search against the shrinking `out` buffer using a match taken from
+  // the untouched `src`. Two heredocs opened with the SAME tag made the second
+  // lookup land back on the FIRST (already-stripped) occurrence, so everything
+  // from there to the first terminator - including a whole real subcommand in
+  // between - was erased as if it were heredoc body.
+  const cmd = "cat <<'EOF'" + NL + 'foo' + NL + 'EOF' + NL +
+    "rm -rf /important <<'EOF'" + NL + 'bar' + NL + 'EOF' + NL + 'echo done';
+  assert.deepEqual(splitSubcommands(cmd).map(headOf), ['cat', 'rm', 'echo']);
+});
+
 test('an unterminated heredoc drops the remainder rather than guessing', () => {
   const cmd = "cat > f << 'EOF'" + NL + 'body with no terminator' + NL + 'rm -rf ~';
   const heads = splitSubcommands(cmd).map(headOf);
@@ -240,4 +252,34 @@ test('REAL CASE: the commit-message pattern names rm as the reason', () => {
   const r = evaluate({ tool_name: 'Bash', tool_input: { command: cmd } }, POLICY);
   assert.notEqual(r.decision, 'allow', 'the rm must not be waved through');
   assert.match(r.reason, /rm/, 'the reason must name the offending subcommand');
+});
+
+
+// --------------------------------- quotes vs separators (grep alternation) ----
+
+const NL2 = String.fromCharCode(10);
+
+test('SECURITY+UX: a pipe inside a quoted grep pattern is literal, not a separator', () => {
+  // grep "A\\|B" is a single read-only command. Splitting on the quoted pipe made
+  // the pattern text a phantom command head, so the gate prompted on a plain grep -
+  // which is what produced constant allow-bash popups on graphene_supply.
+  const heads = splitSubcommands('grep "INTERNAL_\\|SERVICE_TOKEN" src').map(headOf);
+  assert.deepEqual(heads, ['grep']);
+});
+
+test('a real pipe OUTSIDE quotes still separates', () => {
+  const heads = splitSubcommands('grep foo src | grep -v node_modules | head').map(headOf);
+  assert.deepEqual(heads, ['grep', 'grep', 'head']);
+});
+
+test('SECURITY: quote-awareness does not hide a chained rm', () => {
+  // The separators outside quotes must still split, or the newline/;/&& security
+  // fixes would regress. rm after each separator must be seen.
+  assert.deepEqual(splitSubcommands('grep foo src && rm -rf ~').map(headOf), ['grep', 'rm']);
+  assert.deepEqual(splitSubcommands('echo hi; rm -rf ~').map(headOf), ['echo', 'rm']);
+  assert.deepEqual(splitSubcommands('grep foo' + NL2 + 'rm -rf ~').map(headOf), ['grep', 'rm']);
+});
+
+test('a pipe inside double quotes is literal even with a real pipe after', () => {
+  assert.deepEqual(splitSubcommands('echo "a|b" | grep a').map(headOf), ['echo', 'grep']);
 });

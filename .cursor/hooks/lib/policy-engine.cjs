@@ -95,6 +95,29 @@ function stripHeredocs(src) {
   return out;
 }
 
+function splitOnSeparators(src) {
+  // Split on shell separators (&& || | ; newlines) but ONLY outside quotes. A
+  // naive regex split treated the pipe inside a quoted grep pattern
+  // (grep "A\\|B") as a separator, so the pattern text became a phantom command
+  // head and the gate prompted on a read-only grep. Separators are shell
+  // operators; inside a quote they are literal text.
+  const out = [];
+  let buf = '';
+  let quote = null;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (quote) { buf += c; if (c === quote) quote = null; continue; }
+    if (c === '"' || c === "'") { quote = c; buf += c; continue; }
+    if ((c === '&' && src[i + 1] === '&') || (c === '|' && src[i + 1] === '|')) {
+      out.push(buf); buf = ''; i += 1; continue;
+    }
+    if (c === ';' || c === '|' || c === '\n' || c === '\r') { out.push(buf); buf = ''; continue; }
+    buf += c;
+  }
+  out.push(buf);
+  return out;
+}
+
 function splitSubcommands(command) {
   const src = String(command || '');
   if (!src.trim()) return null;
@@ -123,8 +146,7 @@ function splitSubcommands(command) {
   // subcommand with head `git`, was found on the allowed list, and the rm was
   // passed through unexamined. The gate then reported "all 1 subcommand(s) on
   // the allowed head list" - precise, confident, and wrong about the count.
-  const parts = flat
-    .split(/&&|\|\||[;|\n\r]/)
+  const parts = splitOnSeparators(flat)
     .concat(nested)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -228,6 +250,7 @@ function evaluate(event, policy, projectRoot) {
 }
 
 module.exports = {
+  splitOnSeparators,
   stripHeredocs,
   evaluate, evaluateShell, evaluateWrite, evaluateMcp,
   splitSubcommands, headOf, isInside, matchesAny, globToRegExp,
