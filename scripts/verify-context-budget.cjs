@@ -41,8 +41,31 @@ const FAIL_KB = Number(process.env.CONTEXT_FAIL_KB || 100);
 /** Roughly four characters to a token. Stated, because it is an estimate. */
 const tokens = (bytes) => Math.round(bytes / 4);
 
+function sh(cmd) {
+  const r = require('node:child_process').spawnSync(cmd, { cwd: ROOT, shell: true, encoding: 'utf8' });
+  return { status: r.status, stdout: r.stdout || '' };
+}
+
 const READABLE = /\.(md|txt|json|ya?ml|csv)$/i;
-const SKIP = /node_modules|[\\/]\.git[\\/]|package-lock|pnpm-lock|[\\/]dist[\\/]|[\\/]coverage[\\/]/;
+const SKIP = /node_modules|[\\/]\.git[\\/]|package-lock|pnpm-lock|[\\/]dist[\\/]|[\\/]coverage[\\/]|graphify-out(-spec)?[\\/](graph|manifest)\.json|graphify-out(-spec)?[\\/]\.graphify|graphify-out(-spec)?[\\/]GRAPH_REPORT/;
+
+// Only files GIT TRACKS can affect what an agent reads from a clean checkout, so
+// the budget measures tracked files, not the whole filesystem. The old walk
+// recursed everything and flagged .venv/, graphify-out/cache/, other worktrees,
+// and gitignored artefacts - none of which an agent pulls, and all of which are
+// noise the report should never contain (DF-BUG-8). `git ls-files` yields exactly
+// the tracked set and honours .gitignore for free. Outside a git tree (or if git
+// is unavailable) we fall back to the filesystem walk, so the check still runs.
+function trackedFiles() {
+  const r = sh('git ls-files -z');
+  if (r.status !== 0 || !r.stdout) return null;
+  return r.stdout
+    .split('\0')
+    .map((f) => f.trim())
+    .filter(Boolean)
+    .filter((f) => READABLE.test(f) && !SKIP.test(f))
+    .map((f) => path.join(ROOT, f));
+}
 
 function walk(dir, out = []) {
   let entries;
@@ -78,7 +101,7 @@ const ADVICE = {
   compact: 'read whole and verbose, so shorten it',
 };
 
-const files = walk(ROOT).map((f) => {
+const files = (trackedFiles() || walk(ROOT)).map((f) => {
   const rel = path.relative(ROOT, f).replace(/\\/g, '/');
   let size = 0;
   try { size = fs.statSync(f).size; } catch { /* vanished mid-walk */ }

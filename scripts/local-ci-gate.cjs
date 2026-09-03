@@ -385,17 +385,20 @@ await withLock(lockRepoId, async () => {
       }
     }
 
-    // Context budget. A committed file large enough to fill an agent's context
-    // makes every session that reads it compact on that single read (DF-BUG-5: a
-    // 937 KB status dashboard, a 250 KB lighthouse report). The verifier existed
-    // and was in verify:all, but nothing on the MERGE path ran it - so a
-    // quarter-million-token file could sit tracked indefinitely with no gate
-    // objecting. It fails at 100 KB per readable file; warnings do not block.
+    // Context budget. ADVISORY, never blocking. The budget is a health signal for
+    // keeping agent input context small (DF-BUG-5); it is NOT a merge acceptance
+    // criterion. Blocking the gate on it was wrong for two reasons: it is
+    // whole-repo rather than diff-scoped, so it fails on large files the change
+    // never touched (a 72 MB graph.json deliberately kept, a docs dashboard, a
+    // regression-targets list); and a change is not incorrect because some other,
+    // untouched file is large. So we RUN it and surface the result, and never
+    // fail the gate on it - the report is the value, not a veto (DF-BUG-8).
     const budget = path.join(ROOT, 'scripts', 'verify-context-budget.cjs');
     if (fs.existsSync(budget)) {
-      console.log('[local-ci-gate] checking context budget (scripts/verify-context-budget.cjs)');
       const b = sh(`node "${budget}"`, { stdio: 'inherit' });
-      if (b.status !== 0) blockFail('a readable file is over the context budget - see the step above; split it, summarise it, or gitignore it if generated');
+      if (b.status !== 0) {
+        console.log('[local-ci-gate] context budget: files over budget noted above (advisory - does not block the merge; trim or gitignore them when convenient).');
+      }
     }
 
     const runner = path.join(ROOT, 'scripts', 'run-all-tests.cjs');
