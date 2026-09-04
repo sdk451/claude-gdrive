@@ -98,7 +98,9 @@
       "pushd",
       "popd",
       ":",
-      "false"
+      "false",
+      "[",
+      "[["
     ],
     "deniedPatterns": [
       "rm\\s+-rf\\s+[/~]",
