@@ -196,6 +196,14 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR}/scripts/validate-permission-config.cjs \"${CLAUDE_PROJECT_DIR}\""
+          }
+        ]
       }
     ],
     "PreCompact": [
