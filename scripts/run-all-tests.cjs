@@ -777,11 +777,58 @@ function main() {
   // becoming a coverage cut.
   const targetFiles = scope.targetFilesFor(projectRoot, resolved.scope, storyId);
 
+  // Minimal glob matcher for coverage globs: ** matches across separators, *
+  // within a segment. Self-contained so this lane depends on nothing external.
+  const globToRe = (glob) => {
+    let re = '';
+    for (let i = 0; i < glob.length; i += 1) {
+      const c = glob[i];
+      if (c === '*') {
+        if (glob[i + 1] === '*') { re += '.*'; i += 1; if (glob[i + 1] === '/') i += 1; }
+        else re += '[^/]*';
+      } else if ('\\^$+?.()|{}[]'.includes(c)) { re += '\\' + c; }
+      else re += c;
+    }
+    return new RegExp('^' + re + '$');
+  };
+  let gateConfig = null;
+  try {
+    gateConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'gate.config.json'), 'utf8'));
+  } catch { gateConfig = null; }
+
   const regressionRequested = !diagnostic || onlySuites.includes('regression');
+
+  // At full scope, most regression targets are redundant: they are tests that
+  // already ran as part of the suites full executes wholesale (pytest tests/unit,
+  // playwright test, vitest run). Re-running them is the slowest redundant step
+  // on a full sweep, for zero extra coverage. But NOT every target is covered - a
+  // repo may have targets outside the full suites' directories (a ci/tests file, a
+  // tests/scripts runbook check), and those must still run at full scope or the
+  // skip becomes a silent coverage cut.
+  //
+  // So the skip is opt-in and per-target, driven by gate.config.json:
+  //   "fullScopeCoverageGlobs": ["apps/*/tests/unit/**", "tests/e2e/**", ...]
+  // A target matching one of those globs is already covered by a full suite and is
+  // skipped at full scope; a target matching none still runs. Absent config skips
+  // nothing - the safe default preserves current behaviour for repos that have not
+  // declared what their full suites cover.
+  const fullCoverageGlobs = (gateConfig && Array.isArray(gateConfig.fullScopeCoverageGlobs))
+    ? gateConfig.fullScopeCoverageGlobs
+    : [];
+  const coveredAtFull = (relPath) =>
+    resolved.scope === 'full'
+    && !onlySuites.includes('regression')
+    && fullCoverageGlobs.some((g) => globToRe(g).test(relPath));
   if (fs.existsSync(targetedScript) && targetFiles.length && regressionRequested) {
+    let skippedRedundant = 0;
     for (const tf of targetFiles) {
       const rel = path.relative(projectRoot, tf).replace(/\\/g, '/');
       const name = `regression:${rel}`;
+      if (coveredAtFull(rel)) {
+        // Already executed by a full suite this run - skip, do not re-run.
+        skippedRedundant += 1;
+        continue;
+      }
       if (RESUME_MODE !== 'full') {
         const plan = runState.planFromState([name], resumeState, resumeFingerprint, RESUME_MODE);
         if (plan.skipped.length) {
@@ -800,6 +847,12 @@ function main() {
       if (!runCommand(name, regressionTargetCommand(targetedScript, tf))) {
         exitCode = 1;
       }
+    }
+    if (skippedRedundant > 0) {
+      console.log(
+        `[regression] scope=full - skipped ${skippedRedundant} of ${targetFiles.length} ` +
+        `target(s) already covered by the full suites (see fullScopeCoverageGlobs in ` +
+        `gate.config.json); ran ${targetFiles.length - skippedRedundant} not covered elsewhere.`);
     }
     // Only a PASSING run moves the ledger. A red full pass must not reset the
     // counter and buy another window of narrow merges.
