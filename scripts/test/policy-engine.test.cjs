@@ -283,3 +283,26 @@ test('SECURITY: quote-awareness does not hide a chained rm', () => {
 test('a pipe inside double quotes is literal even with a real pipe after', () => {
   assert.deepEqual(splitSubcommands('echo "a|b" | grep a').map(headOf), ['echo', 'grep']);
 });
+
+// ------------------------------- heredoc bodies vs quote-balance -------------
+
+const NL3 = String.fromCharCode(10);
+
+test('a commit heredoc with apostrophes in the body does not prompt', () => {
+  // git commit -F - <<'EOF' ... prose with E44's and D-B92's ... EOF made the
+  // single-quote count odd, so splitSubcommands returned null and the gate
+  // prompted on a routine commit. Heredoc bodies are data; strip before counting.
+  const cmd = ["git commit -F - <<'EOF'", "prose with E44's and D-B92's apostrophes", 'and && and a "quote"', 'EOF'].join(NL3);
+  const heads = splitSubcommands(cmd);
+  assert.notEqual(heads, null, 'must not bail to null on heredoc-body apostrophes');
+  assert.deepEqual(heads.map(headOf), ['git']);
+});
+
+test('SECURITY: a command after the heredoc terminator is still evaluated', () => {
+  const cmd = ["git commit -F - <<'EOF'", "harmless prose with an apostrophe like E44's", 'EOF', 'rm -rf ~'].join(NL3);
+  assert.deepEqual(splitSubcommands(cmd).map(headOf), ['git', 'rm']);
+});
+
+test('a genuinely unbalanced quote (not a heredoc) still bails to null', () => {
+  assert.equal(splitSubcommands('echo "unterminated string'), null);
+});

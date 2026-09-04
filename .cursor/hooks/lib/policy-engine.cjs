@@ -119,8 +119,14 @@ function splitOnSeparators(src) {
 }
 
 function splitSubcommands(command) {
-  const src = String(command || '');
-  if (!src.trim()) return null;
+  const raw = String(command || '');
+  if (!raw.trim()) return null;
+  // Strip heredoc bodies FIRST. They are data, not shell: their apostrophes
+  // (E44's, D-B92's) and && and quotes are prose. Counting them broke the
+  // quote-balance check below - a commit-message heredoc with an apostrophe
+  // made the single-quote count odd, splitSubcommands returned null, and the
+  // gate fell through to prompting on a routine `git commit -F - <<EOF`.
+  const src = stripHeredocs(raw);
   // Unbalanced quotes mean we cannot trust our own tokenisation.
   const dq = (src.match(/"/g) || []).length;
   const sq = (src.match(/'/g) || []).length;
@@ -139,7 +145,7 @@ function splitSubcommands(command) {
   // newlines, or a commit message reading "rm the old file" becomes a subcommand
   // and the gate starts prompting on prose. `cat > f << 'EOF' ... EOF` keeps its
   // head; the body disappears.
-  flat = stripHeredocs(flat);
+  // (heredoc bodies already stripped at the top of this function)
 
   // Newlines separate commands exactly as `;` does. Omitting them meant a
   // newline HID everything after it: `git status\nrm -rf ~` parsed as ONE
