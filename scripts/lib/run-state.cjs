@@ -87,7 +87,7 @@ function planFromState(allTargets, state, fp, mode) {
   if (!state) {
     return { run: [...allTargets], skipped: [], reason: 'no previous run recorded; running everything', resumed: false };
   }
-  if (state.fingerprint !== fp) {
+  if (state.fingerprint !== fp && mode === 'resume') {
     /*
      * The tree moved. Every recorded pass belongs to different code, and
      * skipping on the strength of it would report a pass for a target that never
@@ -96,7 +96,7 @@ function planFromState(allTargets, state, fp, mode) {
     return {
       run: [...allTargets],
       skipped: [],
-      reason: 'the tree has changed since the last run, so prior results do not apply; running everything',
+      reason: 'the tree has changed since the last run, so prior passes do not apply; running everything',
       resumed: false,
     };
   }
@@ -106,11 +106,19 @@ function planFromState(allTargets, state, fp, mode) {
 
   if (mode === 'failed-only') {
     const run = allTargets.filter((t) => failed.has(t));
+    // After a fix the tree has moved; the previously-passing targets passed
+    // against different code and are NOT re-verified here. State that residual
+    // risk rather than implying a green gate covered them.
+    const treeMoved = state.fingerprint !== fp;
+    const staleNote = treeMoved
+      ? ` (tree changed: the ${allTargets.length - run.length} previously-passing target(s) are NOT re-verified against current code - blast radius unmeasured)`
+      : '';
     return {
       run,
       skipped: allTargets.filter((t) => !failed.has(t)),
-      reason: run.length ? `only the ${run.length} target(s) that failed last time` : 'nothing failed last time',
+      reason: (run.length ? `only the ${run.length} target(s) that failed last time` : 'nothing failed last time') + staleNote,
       resumed: true,
+      stale: treeMoved,
     };
   }
   // resume: anything not known to have passed, including targets never reached
