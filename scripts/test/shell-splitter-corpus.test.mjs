@@ -75,6 +75,8 @@ const SAFE = [
     ['grep -rn "A" src', 'grep -rn "B" test', 'echo done'].join(NL)],
   ['awk/sed read', 'cat f | awk \'{print $1}\' | sort | uniq -c'],
   ['test/[ builtins', '[ -f package.json ] && echo exists'],
+  ['escaped quote in grep pattern', 'grep -rn "name = \\"graphene" main.tf | head'],
+  ['escaped quote with alternation', 'grep "task_role\\|name = \\"x" f'],
 ];
 
 for (const [name, cmd] of SAFE) {
@@ -110,6 +112,7 @@ const DANGEROUS = [
   ['rm in backticks', 'echo `rm -rf /`'],
   ['chained after many safe', 'cd x && grep a b && echo c && ls && rm -rf ~'],
   ['git push --force after safe', 'git status && git push origin main --force'],
+  ['rm after an escaped-quote grep', 'grep "a\\"b" f && rm -rf ~'],
 ];
 
 for (const [name, cmd] of DANGEROUS) {
