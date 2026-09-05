@@ -106,6 +106,7 @@ function splitOnSeparators(src) {
   let quote = null;
   for (let i = 0; i < src.length; i += 1) {
     const c = src[i];
+    if (c === '\\' && i + 1 < src.length) { buf += c + src[i + 1]; i += 1; continue; }
     if (quote) { buf += c; if (c === quote) quote = null; continue; }
     if (c === '"' || c === "'") { quote = c; buf += c; continue; }
     if ((c === '&' && src[i + 1] === '&') || (c === '|' && src[i + 1] === '|')) {
@@ -127,9 +128,20 @@ function splitSubcommands(command) {
   // made the single-quote count odd, splitSubcommands returned null, and the
   // gate fell through to prompting on a routine `git commit -F - <<EOF`.
   const src = stripHeredocs(raw);
-  // Unbalanced quotes mean we cannot trust our own tokenisation.
-  const dq = (src.match(/"/g) || []).length;
-  const sq = (src.match(/'/g) || []).length;
+  // Unbalanced quotes mean we cannot trust our own tokenisation - but count only
+  // UNESCAPED quotes. A backslash-escaped quote (\\" inside a double-quoted grep
+  // pattern like "name = \\"graphene") is a literal, not a boundary; counting it
+  // made the total odd and bailed to null, prompting on a read-only grep.
+  const countUnescaped = (str, q) => {
+    let n = 0;
+    for (let i = 0; i < str.length; i += 1) {
+      if (str[i] === '\\') { i += 1; continue; }   // skip the escaped char
+      if (str[i] === q) n += 1;
+    }
+    return n;
+  };
+  const dq = countUnescaped(src, '"');
+  const sq = countUnescaped(src, "'");
   if (dq % 2 !== 0 || sq % 2 !== 0) return null;
 
   // Pull out $(...) and `...` bodies and treat them as subcommands in their own
