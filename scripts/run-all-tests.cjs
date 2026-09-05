@@ -824,35 +824,70 @@ function main() {
     for (const tf of targetFiles) {
       const rel = path.relative(projectRoot, tf).replace(/\\/g, '/');
       const name = `regression:${rel}`;
-      if (coveredAtFull(rel)) {
-        // Already executed by a full suite this run - skip, do not re-run.
-        skippedRedundant += 1;
-        continue;
+
+      // Filter the ENTRIES inside the targets file, not the file's own path. Each
+      // line is `<tier>:<path>`; an entry whose path a full suite already ran is
+      // redundant at full scope. Run only the survivors. This is the granularity
+      // #394 got wrong - it matched the glob against tests/regression/...txt,
+      // which matches no file-shaped glob, so nothing was ever skipped.
+      let runTarget = tf;
+      let tmpToClean = null;
+      if (resolved.scope === 'full' && !onlySuites.includes('regression')
+          && fullCoverageGlobs.length) {
+        let entries;
+        try { entries = fs.readFileSync(tf, 'utf8').split(/\r?\n/); }
+        catch { entries = null; }
+        if (entries) {
+          const kept = [];
+          for (const line of entries) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) { kept.push(line); continue; }
+            const colon = trimmed.indexOf(':');
+            const entryPath = colon === -1 ? trimmed : trimmed.slice(colon + 1);
+            if (coveredAtFull(entryPath)) { skippedRedundant += 1; continue; }
+            kept.push(line);
+          }
+          const keptTargets = kept.filter((l) => l.trim() && !l.trim().startsWith('#'));
+          if (keptTargets.length === 0) {
+            // Every entry is covered - nothing genuinely new to run.
+            continue;
+          }
+          if (skippedRedundant > 0) {
+            // Some were dropped: run the survivors from a temp file.
+            tmpToClean = path.join(os.tmpdir(),
+              `regression-uncovered-${process.pid}-${Date.now()}.txt`);
+            fs.writeFileSync(tmpToClean, kept.join('\n'), 'utf8');
+            runTarget = tmpToClean;
+          }
+        }
       }
+
       if (RESUME_MODE !== 'full') {
         const plan = runState.planFromState([name], resumeState, resumeFingerprint, RESUME_MODE);
         if (plan.skipped.length) {
           results.push({
             name,
-            command: regressionTargetCommand(targetedScript, tf),
+            command: regressionTargetCommand(targetedScript, runTarget),
             status: 'skip',
             durationMs: 0,
             output: `resume: ${plan.reason}`,
           });
           globalThis.__resumeSkipped.push(name);
+          if (tmpToClean) { try { fs.unlinkSync(tmpToClean); } catch { /* best effort */ } }
           continue;
         }
       }
       ranAny = true;
-      if (!runCommand(name, regressionTargetCommand(targetedScript, tf))) {
+      if (!runCommand(name, regressionTargetCommand(targetedScript, runTarget))) {
         exitCode = 1;
       }
+      if (tmpToClean) { try { fs.unlinkSync(tmpToClean); } catch { /* best effort */ } }
     }
     if (skippedRedundant > 0) {
       console.log(
-        `[regression] scope=full - skipped ${skippedRedundant} of ${targetFiles.length} ` +
-        `target(s) already covered by the full suites (see fullScopeCoverageGlobs in ` +
-        `gate.config.json); ran ${targetFiles.length - skippedRedundant} not covered elsewhere.`);
+        `[regression] scope=full - skipped ${skippedRedundant} redundant target ENTR(Y|IES) ` +
+        `already covered by the full suites (fullScopeCoverageGlobs in gate.config.json); ` +
+        `ran only the entries not covered elsewhere.`);
     }
     // Only a PASSING run moves the ledger. A red full pass must not reset the
     // counter and buy another window of narrow merges.
